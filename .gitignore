@@ -1,0 +1,40 @@
+# --- 1. Go Binaries (ไฟล์ที่ได้จากการคอมไพล์) ---
+# ไม่เอาตัวโปรแกรมที่ Build เสร็จแล้วขึ้น Git
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+bin/
+# หากคุณ build แล้วได้ชื่อไฟล์อื่น ให้เพิ่มชื่อนั้นที่นี่ เช่น /my-app
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+
+# --- 2. Secrets & Config (ความลับและความปลอดภัย) ---
+# ห้ามเอาไฟล์รหัสผ่านหรือ API Key ขึ้น Git
+.env
+.env.local
+.env.*.local
+
+# --- 3. Docker & Volumes (กรณีใช้ Docker) ---
+# ถ้าคุณมีการเก็บข้อมูล Database ไว้ในโฟลเดอร์โปรเจกต์
+*/data/
+*/db_data/
+*.log
+
+# --- 4. IDEs & Editor (ไฟล์ขยะของโปรแกรมเขียนโค้ด) ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- 5. Go Workspace (ถ้ามี) ---
+go.work
+go.work.sum
