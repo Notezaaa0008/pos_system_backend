@@ -21,7 +21,8 @@ type User struct {
 
 	// Belongs To: ตัวเชื่อมไปหา Role
 	RoleID    		uuid.UUID 		`gorm:"type:uuid;not null;index"`
-	Role      		Role      		`gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	Role      		Role      		`gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
 	RefreshToken 	[]RefreshToken	`gorm:"foreignKey:UserID"`
+	ResetPassword	[]ResetPassword `gorm:"foreignKey:UserID"`
 }

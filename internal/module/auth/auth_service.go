@@ -4,20 +4,38 @@ import (
 	"errors"
 	"gin-quickstart/internal/models"
 	authdto "gin-quickstart/internal/module/auth/dto"
-	"gin-quickstart/internal/module/roles"
 	"gin-quickstart/pkg/utils"
 	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-type AuthService struct {
-	repo *AuthRepository
-	roleService *roles.RolesService
+type AuthRepositoryInterface interface {
+	CheckSuperAdminExists(rolesID uuid.UUID) (bool, error)
+	CheckRefreshTokenValid(hashRefreshToken string) (bool, error)
+	FineUserByUserName(userName string) (*models.User, error)
+	FindUserByEmail(email string) (*models.User, error)
+	FindValidResetToken(token string) (*models.ResetPassword, error)
+	CreateUser(user *models.User) error
+	CreateRefreshTokenRecord(refreshToken *models.RefreshToken) error
+	CreateResetPassword(reset *models.ResetPassword) error
+	RevokeRefreshToken(userID uuid.UUID, hashedToken string) error
+	UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error
 }
 
-func NewAuthService (repo *AuthRepository, roleService *roles.RolesService) *AuthService {
+type RoleServiceReader interface {
+    GetRoleIdByRoleNameService(roleName string) (uuid.UUID, error)
+}
+
+type AuthService struct {
+	repo AuthRepositoryInterface
+	roleService RoleServiceReader
+}
+
+func NewAuthService (repo AuthRepositoryInterface, roleService RoleServiceReader) *AuthService {
 	return &AuthService{
 		repo: repo,
 		roleService: roleService,
@@ -44,6 +62,10 @@ func (service *AuthService) RegisterSuperAdminService(req *authdto.RegisterSuper
 
 	hashedPassword, err := utils.HashedPassword(req.Password)
 
+	if err != nil {
+		return err
+	}
+
 	newUser := &models.User{
 		UserName: req.UserName,
 		FirstName: req.FirstName,
@@ -61,6 +83,22 @@ func (service *AuthService) RegisterSuperAdminService(req *authdto.RegisterSuper
 
 	return nil
 } 
+
+func (service *AuthService) ValidateRefreshTokenService(refreshToken string) (bool, error) {
+	if refreshToken == "" {
+		return false, errors.New("refresh token is required.")
+	}
+
+	hashedToken := utils.HashToken(refreshToken)
+
+	 isValid ,err := service.repo.CheckRefreshTokenValid(hashedToken)
+
+	 if err != nil {
+		return false, err 
+	 }
+	
+	 return isValid, nil
+}
 
 func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error) {
 	user, err := service.repo.FineUserByUserName(req.UserName)
@@ -133,3 +171,101 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	return accessToken, refreshToken, user, nil
 }
 
+func (service *AuthService) LogoutService(userIDStr string, rawRefreshToken string, allDevices bool) error {
+	userUUID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return err
+	}
+
+	// 🚨 เคสที่ 1: สั่งลบทุกเครื่อง (ไม่สนใจ Token เครื่องปัจจุบัน)
+	if allDevices {
+		// ส่ง (userID, "") -> Repo จะไปใช้เงื่อนไขคัดเฉพาะอันที่ยังไม่หมดอายุของยูสเซอร์คนนี้
+		return service.repo.RevokeRefreshToken(userUUID, "")
+	}
+
+	// 🚨 เคสที่ 2: สั่งลบเฉพาะเครื่องปัจจุบัน
+	if rawRefreshToken == "" {
+		return errors.New("missing refresh token for current device logout")
+	}
+	
+	// 🔒 ทำการแฮช Token ดิบให้เป็นค่า SHA-256 อยู่ในชั้นนี้ตามกฎธุรกิจ
+	hashedToken := utils.HashToken(rawRefreshToken)
+
+	// ส่ง (uuid.Nil, hashedToken) -> Repo จะเจาะจงทำลายใบนี้ทันที
+	return service.repo.RevokeRefreshToken(uuid.Nil, hashedToken)
+}
+
+func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPassword) error{
+	user, err := service.repo.FindUserByEmail(req.Email)
+
+	if err != nil {
+		return nil
+	}
+
+	token := utils.RandomToken()
+	
+	timeResetPasswordStr := os.Getenv("TIME_RESET_PASSWORD")
+
+	if timeResetPasswordStr == "" {
+		log.Println("Error: TIME_RESET_PASSWORD is missing in .env")
+		// ถ้าลืมประกาศตัวแปรนี้ใน .env เลย ให้เบรกระบบทันที
+		return errors.New("Missing in environment configuration")
+	}
+
+	// แปลงจาก string เป็น int 
+	timeResetPassword, err := strconv.Atoi(timeResetPasswordStr)
+	
+	if err != nil {
+		log.Println("Admin Warning: TIME_ACC_TOKEN in .env must be a number:", err)
+		return errors.New("internal server error: invalid security configuration format")
+	}
+	
+	expiredAt := time.Now().Add(time.Duration(timeResetPassword) * time.Minute)
+
+	reserData := &models.ResetPassword{
+		UserID: user.ID,
+		Token: token,
+		ExpiredAt: expiredAt,
+	}
+
+	err = service.repo.CreateResetPassword(reserData)
+
+	if err != nil {
+		return err
+	}
+
+	err = utils.SendResetPasswordEmail(user.Email, token)
+	if err != nil {
+		log.Println("failed to send email.")
+		return err
+	}
+
+	return nil
+}
+
+func (service *AuthService) ResetPasswordService(req *authdto.ResetPassword) error{
+	// 1. ตรวจสอบตั๋ว (Token) ว่าถูกต้อง/ไม่หมดอายุ ไหม
+	resetToken, err := service.repo.FindValidResetToken(req.Token)
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
+
+	// 2. แฮชรหัสผ่านใหม่ด้วย bcrypt (เหมือนตอนสมัครสมาชิก)
+	hashedPassword, err := utils.HashedPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	// 3. สั่งบันทึกรหัสใหม่ลง User และสั่งติ๊กใช้ตั๋วใบนี้แล้ว
+	err = service.repo.UpdatePasswordAndRevokeToken(resetToken.UserID, string(hashedPassword), resetToken.ID)
+	if err != nil {
+		return err
+	}
+
+	err = service.repo.RevokeRefreshToken(resetToken.UserID, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

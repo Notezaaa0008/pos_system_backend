@@ -11,7 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthWithRefreshMiddleware() gin.HandlerFunc {
+type MiddlewareAuthService interface {
+	ValidateRefreshTokenService(hashedRefreshToken string) (bool, error)
+}
+
+func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		isProduction := os.Getenv("APP_ENV") == "production"
@@ -43,11 +47,40 @@ func AuthWithRefreshMiddleware() gin.HandlerFunc {
 		// ตรวจสอบไส้ในของ Refresh Token
 		refreshClaims, err := utils.ParseAndValidateToken(refreshToken)
 		if err != nil {
-			// ถ้า Refresh Token ก็ปลอมหรือหมดอายุด้วย จบเกมครับ ยูสเซอร์ต้องไปล็อกอินใหม่จริงๆ
+			// 🚨 เคสที่ตั๋วหมดอายุจริง หรือ ตั๋วปลอม: สั่งทำลายคุกกี้เน่าบนเบราว์เซอร์ทิ้งทันที!
+			c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
+			c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+			// ถ้า Refresh Token ก็ปลอมหรือหมดอายุด้วย ยูสเซอร์ต้องไปล็อกอินใหม่จริงๆ
 			c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "unauthorized: please login again"})
 			c.Abort() // 🚨 สั่ง Gin ว่า: "เฮ้ย หยุดจ่ายงาน! ล็อกประตูเดี๋ยวนี้!"
 			return
 		}
+
+		isValid, err := authService.ValidateRefreshTokenService(refreshToken)
+
+		if err != nil {
+			log.Println("Database Error in Middleware:", err)
+            // ❌ ไม่ลบคุกกี้! แค่แจ้งว่าระบบหลังบ้านมีปัญหาชั่วคราว
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "status": "error", 
+                "message": "internal server error: please try again later",
+            })
+            c.Abort()
+            return
+		}
+
+		if !isValid {
+            log.Println("Warning: Refresh Token is invalid or revoked")
+            // 🔴 ล้างคุกกี้เน่าทิ้งทันที เพราะตั๋วใบนี้ใช้ไม่ได้อีกต่อไปแล้ว
+            c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
+            c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+            c.JSON(http.StatusUnauthorized, gin.H{
+                "status": "error", 
+                "message": "session expired or revoked: please login again",
+            })
+            c.Abort()
+            return
+        }
 
 		// เมื่อ Refresh Token ยังไม่หมดอายุหรือถูกต้อง แปลว่าปลอดภัย
 		// ออก Access Token ใหม่ให้

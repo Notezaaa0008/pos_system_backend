@@ -9,6 +9,7 @@ func Migrate(db *gorm.DB) error {
         &User{},
         &Role{},
         &RefreshToken{},
+        &ResetPassword{},
         // &Post{},
         // &Product{}, // เพิ่มตารางใหม่ๆ ที่นี่ที่เดียว
     )

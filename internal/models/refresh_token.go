@@ -19,5 +19,5 @@ type RefreshToken struct {
 	DeletedAt		gorm.DeletedAt	`gorm:"index"`
 
 	UserID			uuid.UUID 		`gorm:"type:uuid;not null;index"`
-	User			User	  		`gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	User			User	  		`gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

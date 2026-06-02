@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"gin-quickstart/internal/models"
 	authdto "gin-quickstart/internal/module/auth/dto"
 	"net/http"
 	"os"
@@ -10,15 +11,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AuthController struct {
-	service *AuthService
+type AuthServiceInterface interface {
+	RegisterSuperAdminService(req *authdto.RegisterSuperAdminRequest) error
+	LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error)
+	LogoutService(userIDStr string, rawRefreshToken string, allDevices bool) error
+	ForgotPasswordService(req *authdto.ForgotPassword) error
+	ResetPasswordService(req *authdto.ResetPassword) error
 }
 
-func NewAuthController (service *AuthService) *AuthController {
+type AuthController struct {
+	service AuthServiceInterface
+}
+
+func NewAuthController (service AuthServiceInterface) *AuthController {
 	return &AuthController{service: service}
 }
 
-func (authCtrl *AuthController) SignupSuperAdminController (c *gin.Context) {
+func (authCtrl *AuthController) clearAuthCookies(c *gin.Context, isProduction bool) {
+    // การใส่ MaxAge = -1 คือการตะโกนบอกเบราว์เซอร์ว่า "ลบคุกกี้ใบนี้ทิ้งซะเดี๋ยวนี้!"
+    c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
+    c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+}
+
+func (authCtrl *AuthController) SignupSuperAdminController(c *gin.Context) {
 	var req authdto.RegisterSuperAdminRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
@@ -49,7 +64,7 @@ func (authCtrl *AuthController) SignupSuperAdminController (c *gin.Context) {
 	})
 }
 
-func (userCtrl *AuthController) LoginController (c *gin.Context) {
+func (authCtrl *AuthController) LoginController(c *gin.Context) {
 	var req authdto.LoginRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
@@ -70,7 +85,7 @@ func (userCtrl *AuthController) LoginController (c *gin.Context) {
 		userAgent = "Unknown Device"
 	}
 
-	accessToken, refreshToken, user, err := userCtrl.service.LoginService(&req, userAgent)
+	accessToken, refreshToken, user, err := authCtrl.service.LoginService(&req, userAgent)
 
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -127,7 +142,7 @@ func (userCtrl *AuthController) LoginController (c *gin.Context) {
     	displayName = user.UserName // ไม่มีเลย เอา Username ไปกินก่อน
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successfully",
         "user": gin.H{
@@ -136,4 +151,95 @@ func (userCtrl *AuthController) LoginController (c *gin.Context) {
             "role":     	user.Role.RoleName,   // เอาไว้ให้หน้าบ้านเช็กเพื่อ ซ่อน/แสดง ปุ่มเมนู
         },
     })
+}
+
+func (authCtrl *AuthController) LogoutController(c *gin.Context) {
+	// 🔄 ดึงค่า ?all=true ถ้าเป็นคำอื่นหรือไม่ได้ส่งมา จะได้ค่าเป็น false ทันที
+	allDevices := c.Query("all") == "true"
+	refreshToken, _ := c.Cookie("refresh_token")
+	userIDStr, _ := c.Get("userID")
+
+	err := authCtrl.service.LogoutService(userIDStr.(string), refreshToken, allDevices)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to logout"})
+        return
+    }
+
+    // 5. ล้างคุกกี้หน้าบ้านทิ้งตามปกติ
+    isProduction := os.Getenv("APP_ENV") == "production"
+	authCtrl.clearAuthCookies(c, isProduction)
+    // c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
+    // c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+
+    c.JSON(http.StatusOK, gin.H{"status": "success", "message": "logged out successfully"})
+
+}
+
+func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
+	var req authdto.ForgotPassword
+
+	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
+	err := c.ShouldBindJSON(&req)
+	
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "invalid request body format",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	err = authCtrl.service.ForgotPasswordService(&req)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "If the email exists, a reset link has been sent.",
+	})
+}
+
+func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
+	var req authdto.ResetPassword
+
+	err := c.ShouldBindJSON(&req)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "invalid request body format",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	err = authCtrl.service.ResetPasswordService(&req)
+	if err != nil {
+		// แยกแยะเคส: ถ้า Error เกิดจากตั๋วหมดอายุ/ปลอม (ที่เราเขียนดักไว้ใน Service)
+		if err.Error() == "invalid or expired token" {
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": err.Error()})
+			return
+		}
+		
+		// เคสอื่นๆ เช่น DB พัง สั่งพ่น 500 กลับไป
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "failed to reset password"})
+		return
+	}
+
+	isProduction := os.Getenv("APP_ENV") == "production"
+	authCtrl.clearAuthCookies(c, isProduction)
+	// c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
+	// c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "password has been reset successfully. please login again.",
+	})
 }

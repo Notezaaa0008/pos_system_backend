@@ -9,6 +9,8 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/wneessen/go-mail v0.7.3
+
 require (
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.1 // indirect

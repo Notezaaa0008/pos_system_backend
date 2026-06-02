@@ -6,11 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type RolesService struct {
-	repo *RolesRepository
+type RoleRepositoryInterface interface {
+	GetRoleIdByRoleName(roleName string) (uuid.UUID, error)
 }
 
-func NewRolesService (repo *RolesRepository) *RolesService{
+type RolesService struct {
+	repo RoleRepositoryInterface
+}
+
+func NewRolesService (repo RoleRepositoryInterface) *RolesService{
 	return &RolesService{repo: repo}
 }
 
