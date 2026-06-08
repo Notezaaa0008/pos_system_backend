@@ -12,6 +12,6 @@ func initAuthRoutes(routesGroup *gin.RouterGroup, authCtrl *auth.AuthController,
 	
 	auth := routesGroup.Group("/auth")
 	{
-		auth.POST("/signup-super-admin", authCtrl.SignupSuperAdminController)
+		auth.POST("/signup-super-admin", authCtrl.RegisterSystemAdminController)
 	}
 }

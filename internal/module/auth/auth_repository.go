@@ -17,8 +17,8 @@ func NewAuthRepository (db *gorm.DB) *AuthRepository {
 	return &AuthRepository{db: db}
 }
 
-// Search
-func (repo *AuthRepository) CheckSuperAdminExists(rolesID uuid.UUID) (bool, error) {
+// Get
+func (repo *AuthRepository) CheckSystemAdminExists(rolesID uuid.UUID) (bool, error) {
 	if rolesID == uuid.Nil {
 		return false, errors.New("roles id is required.")
 	}
@@ -86,7 +86,7 @@ func (repo *AuthRepository) FindUserByEmail(email string) (*models.User, error) 
 	}
 
 	var user models.User
-
+	// ถ้าหาไม่เจอจะคือเป็น error ถ้าใช้ First
 	err := repo.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
 		return nil, err
@@ -110,12 +110,12 @@ func (repo *AuthRepository) FindValidResetToken(token string) (*models.ResetPass
 }
 
 // Create
-func (repo *AuthRepository) CreateUser(user *models.User) error {
-	if user == nil {
+func (repo *AuthRepository) CreateUser(userData *models.User) error {
+	if userData == nil {
 		return errors.New("data user is required.")
 	}
 
-	err := repo.db.Create(user).Error
+	err := repo.db.Create(userData).Error
 
 	if err != nil {
 		return err
@@ -124,12 +124,12 @@ func (repo *AuthRepository) CreateUser(user *models.User) error {
 	return nil
 }
 
-func (repo *AuthRepository) CreateRefreshTokenRecord(refreshToken *models.RefreshToken) error {
-	if refreshToken == nil {
+func (repo *AuthRepository) CreateRefreshTokenRecord(refreshTokenData *models.RefreshToken) error {
+	if refreshTokenData == nil {
 		return errors.New("data refresh token is required.")
 	}
 
-	err := repo.db.Create(refreshToken).Error
+	err := repo.db.Create(refreshTokenData).Error
 
 	if err != nil {
 		return err
@@ -184,15 +184,27 @@ func (repo *AuthRepository) UpdatePasswordAndRevokeToken(userID uuid.UUID, hashe
 	tx := repo.db.Begin()
 
 	// 1. อัปเดตรหัสผ่านใหม่ให้ User
-	if err := tx.Model(&models.User{}).Where("id = ?", userID).Update("password", hashedPwd).Error; err != nil {
-		tx.Rollback()
-		return err
+	resultUser := tx.Model(&models.User{}).Where("id = ?", userID).Update("password", hashedPwd);
+	if resultUser.Error != nil {
+    	tx.Rollback()
+    	return resultUser.Error
+	}
+
+	if resultUser.RowsAffected == 0 {
+    	tx.Rollback() // 🛑 สั่งถอยทันที เพราะแปลว่าหาตัวยูสเซอร์ไม่เจอ!
+    	return errors.New("user not found, password update failed")
 	}
 
 	// 2. อัปเดตตั๋วใบนี้ว่า "ใช้แล้ว" (is_used = true)
-	if err := tx.Model(&models.ResetPassword{}).Where("id = ?", resetID).Update("is_used", true).Error; err != nil {
-		tx.Rollback()
-		return err
+	resultReset := tx.Model(&models.ResetPassword{}).Where("id = ?", resetID).Update("is_used", true);
+	if resultReset.Error != nil {
+    	tx.Rollback()
+    	return resultReset.Error
+	}
+	
+	if resultReset.RowsAffected == 0 {
+    	tx.Rollback() // 🛑 สั่งถอย ตั๋วนี้อาจจะหมดอายุ ถูกใช้ไปแล้ว หรือ ID ปลอม
+    	return errors.New("reset token is invalid or has already been used")
 	}
 
 	return tx.Commit().Error

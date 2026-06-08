@@ -47,7 +47,7 @@ func main() {
 	server := gin.Default()
 
 	// ลงทะเบียน Custom Validator ชื่อ "strong_password"
-	validator.CustomValidatorPassword()
+	validator.InitCustomValidators()
 
 	// ตั้งค่า CORS Middleware
     // server.Use(cors.New(cors.Config{

@@ -1,29 +1,34 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"gin-quickstart/internal/models"
 	authdto "gin-quickstart/internal/module/auth/dto"
+	"gin-quickstart/pkg/utils"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
-type AuthServiceInterface interface {
-	RegisterSuperAdminService(req *authdto.RegisterSuperAdminRequest) error
+type authServiceInterface interface {
+	RegisterSystemAdminService(req *authdto.RegisterSystemAdminRequest) error
+	RegisterUserService(req *authdto.RegisterUserRequest, userId uuid.UUID) error
 	LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error)
-	LogoutService(userIDStr string, rawRefreshToken string, allDevices bool) error
-	ForgotPasswordService(req *authdto.ForgotPassword) error
-	ResetPasswordService(req *authdto.ResetPassword) error
+	LogoutService(userId uuid.UUID, rawRefreshToken string, allDevices bool) error
+	ForgotPasswordService(req *authdto.ForgotPasswordRequest) error
+	ResetPasswordService(req *authdto.ResetPasswordRequest) error
 }
 
 type AuthController struct {
-	service AuthServiceInterface
+	service authServiceInterface
 }
 
-func NewAuthController (service AuthServiceInterface) *AuthController {
+func NewAuthController (service authServiceInterface) *AuthController {
 	return &AuthController{service: service}
 }
 
@@ -33,8 +38,8 @@ func (authCtrl *AuthController) clearAuthCookies(c *gin.Context, isProduction bo
     c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
 }
 
-func (authCtrl *AuthController) SignupSuperAdminController(c *gin.Context) {
-	var req authdto.RegisterSuperAdminRequest
+func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
+	var req authdto.RegisterSystemAdminRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
@@ -48,20 +53,69 @@ func (authCtrl *AuthController) SignupSuperAdminController(c *gin.Context) {
 		return
 	}
 
-	err = authCtrl.service.RegisterSuperAdminService(&req)
+	err = authCtrl.service.RegisterSystemAdminService(&req)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
-			"message": err.Error(), // จะพ่นข้อความภาษาไทยที่เราตั้งไว้ใน Service ออกไปหาหน้าบ้านทันที
+			"message": err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  "success",
-		"message": "Super Admin account created successfully.",
+		"message": "System Admin account created successfully.",
 	})
+}
+
+func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
+	userId, err := utils.GetUserIDFromCtx(c)
+	
+	if err != nil {
+        // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
+        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
+        return
+    }
+
+	var req authdto.RegisterUserRequest
+
+	err = c.ShouldBindJSON(&req)
+	
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "invalid request body format",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	err = authCtrl.service.RegisterUserService(&req, userId)
+
+	if err != nil {
+		var appErr *utils.AppError
+
+		if errors.As(err, &appErr) {
+            c.JSON(appErr.StatusCode, gin.H{
+                "status":  "error",
+                "message": appErr.Message,
+            })
+            return
+        }
+		
+		c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Internal server error. Something went wrong.",
+        })
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "Account created successfully.",
+	})
+
 }
 
 func (authCtrl *AuthController) LoginController(c *gin.Context) {
@@ -71,11 +125,20 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 	err := c.ShouldBindJSON(&req)
 	
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "invalid request body format",
-			"error":   err.Error(),
-		})
+		var appErr *utils.AppError
+
+		if errors.As(err, &appErr) {
+            c.JSON(appErr.StatusCode, gin.H{
+                "status":  "error",
+                "message": appErr.Message,
+            })
+            return
+        }
+		
+		c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Internal server error. Something went wrong.",
+        })
 		return
 	}
 
@@ -131,17 +194,8 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
     	true,  // 🔒 HttpOnly: true (กัน XSS)
 	)
 
-	var displayName string
-
-	// ถ้ามีทั้งชื่อและนามสกุล
-	if user.FirstName != "" && user.LastName != "" {
-    	displayName = fmt.Sprintf("%s %s", user.FirstName, user.LastName)
-	} else if user.FirstName != "" {
-    	displayName = user.FirstName // มีแต่ชื่อ เอาแค่ชื่อ
-	} else {
-    	displayName = user.UserName // ไม่มีเลย เอา Username ไปกินก่อน
-	}
-
+    displayName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+    
 	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successfully",
@@ -155,11 +209,34 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 
 func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 	// 🔄 ดึงค่า ?all=true ถ้าเป็นคำอื่นหรือไม่ได้ส่งมา จะได้ค่าเป็น false ทันที
-	allDevices := c.Query("all") == "true"
-	refreshToken, _ := c.Cookie("refresh_token")
-	userIDStr, _ := c.Get("userID")
+	allQuery := strings.TrimSpace(c.Query("all"))
+	allDevices, err := strconv.ParseBool(allQuery)
+	if err != nil {
+    	c.JSON(http.StatusBadRequest, gin.H{
+        	"status":  "error",
+        	"message": "Invalid query parameter 'all'. Must be a boolean value.",
+    	})
+    	return
+	}
 
-	err := authCtrl.service.LogoutService(userIDStr.(string), refreshToken, allDevices)
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+    	c.JSON(http.StatusUnauthorized, gin.H{
+        	"status":  "error",
+        	"message": "Refresh token is missing. Please log in again.",
+    	})
+    	return
+	}
+
+	userId, err := utils.GetUserIDFromCtx(c)
+	
+	if err != nil {
+        // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
+        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
+        return
+    }
+
+	err = authCtrl.service.LogoutService(userId, refreshToken, allDevices)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to logout"})
         return
@@ -176,7 +253,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
-	var req authdto.ForgotPassword
+	var req authdto.ForgotPasswordRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
@@ -207,7 +284,7 @@ func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
-	var req authdto.ResetPassword
+	var req authdto.ResetPasswordRequest
 
 	err := c.ShouldBindJSON(&req)
 

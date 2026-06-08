@@ -8,7 +8,7 @@ import (
 )
 
 
-func CustomValidatorPassword() {
+func InitCustomValidators() {
 	var (
 		hasUpperRegex   = regexp.MustCompile(`[A-Z]`)
 		hasLowerRegex   = regexp.MustCompile(`[a-z]`)

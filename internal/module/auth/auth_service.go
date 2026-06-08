@@ -8,13 +8,14 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type AuthRepositoryInterface interface {
-	CheckSuperAdminExists(rolesID uuid.UUID) (bool, error)
+type authRepositoryInterface interface {
+	CheckSystemAdminExists(rolesID uuid.UUID) (bool, error)
 	CheckRefreshTokenValid(hashRefreshToken string) (bool, error)
 	FineUserByUserName(userName string) (*models.User, error)
 	FindUserByEmail(email string) (*models.User, error)
@@ -26,30 +27,39 @@ type AuthRepositoryInterface interface {
 	UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error
 }
 
-type RoleServiceReader interface {
+type roleServiceReader interface {
     GetRoleIdByRoleNameService(roleName string) (uuid.UUID, error)
 }
 
 type AuthService struct {
-	repo AuthRepositoryInterface
-	roleService RoleServiceReader
+	repo authRepositoryInterface
+	roleService roleServiceReader
 }
 
-func NewAuthService (repo AuthRepositoryInterface, roleService RoleServiceReader) *AuthService {
+func NewAuthService (repo authRepositoryInterface, roleService roleServiceReader) *AuthService {
 	return &AuthService{
 		repo: repo,
 		roleService: roleService,
 	}
 }
 
-func (service *AuthService) RegisterSuperAdminService(req *authdto.RegisterSuperAdminRequest) error {
-	roleID, err := service.roleService.GetRoleIdByRoleNameService("super_admin")
+func (service *AuthService) RegisterSystemAdminService(req *authdto.RegisterSystemAdminRequest) error {
+	userName, isBlank := utils.IsBlank(req.UserName)
+    if isBlank { return utils.NewBadRequestError("Username is required") }
+
+    firstName, isBlank := utils.IsBlank(req.FirstName)
+    if isBlank { return utils.NewBadRequestError("First name is required") }
+
+    lastName, isBlank := utils.IsBlank(req.LastName)
+    if isBlank { return utils.NewBadRequestError("Last name is required") }   
+
+	roleID, err := service.roleService.GetRoleIdByRoleNameService("system_admin")
 
 	if err != nil {
 		return err
 	}
 
-	exists ,err := service.repo.CheckSuperAdminExists(roleID)
+	exists ,err := service.repo.CheckSystemAdminExists(roleID)
 
 	if err != nil {
 		return err
@@ -60,29 +70,108 @@ func (service *AuthService) RegisterSuperAdminService(req *authdto.RegisterSuper
 		return errors.New("cannot create: a Super Admin account already exists in the system.")
 	}
 
-	hashedPassword, err := utils.HashedPassword(req.Password)
+	hashedPassword, err := utils.HashedPassword(strings.TrimSpace(req.Password))
 
 	if err != nil {
 		return err
 	}
 
-	newUser := &models.User{
-		UserName: req.UserName,
-		FirstName: req.FirstName,
-		LastName: req.LastName,
-		Email: req.Email,
+	
+
+	newUser := models.User{
+		UserName: userName,
+		FirstName: firstName,
+		LastName: lastName,
+		Email: strings.TrimSpace(req.Email),
 		Password: string(hashedPassword),
+		ImageUrl: nil,
 		RoleID: roleID,
+		PrefixID: req.PrefixID,
 		IsActive: true,
+		CreatedBy: uuid.Nil,
 	}
 
-	err = service.repo.CreateUser(newUser)
+	err = service.repo.CreateUser(&newUser)
 	if err != nil {
 		return err
 	}
 
 	return nil
 } 
+
+func (service *AuthService) RegisterUserService(req *authdto.RegisterUserRequest, userId uuid.UUID) error {
+	userName, isBlank := utils.IsBlank(req.UserName)
+    if isBlank { return utils.NewBadRequestError("Username is required") }
+
+    firstName, isBlank := utils.IsBlank(req.FirstName)
+    if isBlank { return utils.NewBadRequestError("First name is required") }
+
+    lastName, isBlank := utils.IsBlank(req.LastName)
+    if isBlank { return utils.NewBadRequestError("Last name is required") }   
+
+	maxAllowedFiles := 1
+	maxAllowedSizeMB := int64(5)
+	allowedFormats := []string{"jpeg", "jpg", "png"}
+
+	var uploadResults []*utils.UploadResult
+    if len(req.Files) > 0 {
+		err := utils.ValidateUploadFile(req.Files, maxAllowedFiles, maxAllowedSizeMB, allowedFormats)
+
+		if err != nil {
+			return err
+		}
+
+        for _, file := range req.Files {
+            // 💡 เรียกใช้ฟังก์ชันที่ปรับปรุงใหม่ จะได้ข้อมูลกลับมาครบ 3 อย่าง
+            res, err := utils.UploadToCloudinary(file)
+            if err != nil {
+                return err 
+            }
+            uploadResults = append(uploadResults, res)
+        }
+    }
+
+	// 3. ดักจับค่ารูปภาพในรูปแบบ Pointer ที่ถูกต้อง ป้องกันสตริงว่างหลุดลง DB
+    var imageUrl *string
+    var originalName *string
+    var fileName *string
+
+    if len(uploadResults) > 0 {
+        targetFile := uploadResults[0]
+
+		imageUrl = &targetFile.SecureURL
+		originalName = &targetFile.OriginalName
+		fileName = &targetFile.CloudName
+    }
+
+	hashedPassword, err := utils.HashedPassword(req.Password)
+
+	if err != nil {
+		return err
+	}
+
+	userData := models.User{
+		UserName: userName,
+		FirstName: firstName,
+		LastName: lastName,
+		Email: strings.TrimSpace(req.Email),
+		Password: string(hashedPassword),
+		ImageName: fileName,
+		ImageOriginalName: originalName,
+		ImageUrl: imageUrl,
+		RoleID: req.RoleID,
+		PrefixID: req.PrefixID,
+		IsActive: true,
+		CreatedBy: userId,
+	}
+
+	err = service.repo.CreateUser(&userData)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (service *AuthService) ValidateRefreshTokenService(refreshToken string) (bool, error) {
 	if refreshToken == "" {
@@ -101,7 +190,10 @@ func (service *AuthService) ValidateRefreshTokenService(refreshToken string) (bo
 }
 
 func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error) {
-	user, err := service.repo.FineUserByUserName(req.UserName)
+	userName, isBlank := utils.IsBlank(req.UserName)
+    if isBlank { return "", "", nil, utils.NewBadRequestError("Username is required") }
+
+	user, err := service.repo.FineUserByUserName(strings.TrimSpace(userName))
 
 	if err != nil {
 		return "", "", nil, err
@@ -156,10 +248,11 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	refreshTokenRecord := models.RefreshToken{
 		UserID: user.ID,
 		TokenHash: hashedToken,
-		ClientType: req.Client,
-		DeviceInfo: userAgent,
+		ClientType: strings.TrimSpace(req.Client),
+		DeviceInfo: &userAgent,
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(durationTimeRefreshToken),
+		CreatedBy: user.ID,
 	}
 
 	err = service.repo.CreateRefreshTokenRecord(&refreshTokenRecord)
@@ -171,16 +264,12 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	return accessToken, refreshToken, user, nil
 }
 
-func (service *AuthService) LogoutService(userIDStr string, rawRefreshToken string, allDevices bool) error {
-	userUUID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return err
-	}
+func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken string, allDevices bool) error {
 
 	// 🚨 เคสที่ 1: สั่งลบทุกเครื่อง (ไม่สนใจ Token เครื่องปัจจุบัน)
 	if allDevices {
 		// ส่ง (userID, "") -> Repo จะไปใช้เงื่อนไขคัดเฉพาะอันที่ยังไม่หมดอายุของยูสเซอร์คนนี้
-		return service.repo.RevokeRefreshToken(userUUID, "")
+		return service.repo.RevokeRefreshToken(userId, "")
 	}
 
 	// 🚨 เคสที่ 2: สั่งลบเฉพาะเครื่องปัจจุบัน
@@ -195,11 +284,11 @@ func (service *AuthService) LogoutService(userIDStr string, rawRefreshToken stri
 	return service.repo.RevokeRefreshToken(uuid.Nil, hashedToken)
 }
 
-func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPassword) error{
-	user, err := service.repo.FindUserByEmail(req.Email)
+func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordRequest) error{
+	user, err := service.repo.FindUserByEmail(strings.TrimSpace(req.Email))
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	token := utils.RandomToken()
@@ -222,13 +311,14 @@ func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPassword) e
 	
 	expiredAt := time.Now().Add(time.Duration(timeResetPassword) * time.Minute)
 
-	reserData := &models.ResetPassword{
+	reserData := models.ResetPassword{
 		UserID: user.ID,
 		Token: token,
 		ExpiredAt: expiredAt,
+		CrearedBy: user.ID,
 	}
 
-	err = service.repo.CreateResetPassword(reserData)
+	err = service.repo.CreateResetPassword(&reserData)
 
 	if err != nil {
 		return err
@@ -243,15 +333,17 @@ func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPassword) e
 	return nil
 }
 
-func (service *AuthService) ResetPasswordService(req *authdto.ResetPassword) error{
+func (service *AuthService) ResetPasswordService(req *authdto.ResetPasswordRequest) error{
+	token, isBlank := utils.IsBlank(req.Token)
+    if isBlank { return utils.NewUnauthorizedError("Token is required.") }
 	// 1. ตรวจสอบตั๋ว (Token) ว่าถูกต้อง/ไม่หมดอายุ ไหม
-	resetToken, err := service.repo.FindValidResetToken(req.Token)
+	resetToken, err := service.repo.FindValidResetToken(token)
 	if err != nil {
 		return errors.New("invalid or expired token")
 	}
 
 	// 2. แฮชรหัสผ่านใหม่ด้วย bcrypt (เหมือนตอนสมัครสมาชิก)
-	hashedPassword, err := utils.HashedPassword(req.NewPassword)
+	hashedPassword, err := utils.HashedPassword(strings.TrimSpace(req.NewPassword))
 	if err != nil {
 		return err
 	}

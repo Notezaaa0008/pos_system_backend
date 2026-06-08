@@ -13,8 +13,11 @@ type ResetPassword struct {
 	ExpiredAt 		time.Time 		`gorm:"not null"`
 	IsUsed    		bool      		`gorm:"default:false;not null"`
 	CreatedAt 		time.Time 		`gorm:"not null"`
-	UpdatedAt 		time.Time
-	DeletedAt 		gorm.DeletedAt	`gorm:"index"`
+	CrearedBy		uuid.UUID		`gorm:"type:uuid;not null"`
+	UpdatedAt 		*time.Time		`gorm:"autoUpdateTime:false;default:nil"`
+	UpdatedBy		*uuid.UUID		`gorm:"type:uuid;"`	
+	DeletedAt 		*gorm.DeletedAt	`gorm:"index"`
+	DeletedBy		*uuid.UUID		`gorm:"type:uuid;"`
 
 	UserID 			uuid.UUID		`gorm:"type:uuid;not null;index"`
 	User      		User      		`gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
