@@ -40,9 +40,10 @@ func GenerateJWT(userID string, roleID string, duration time.Duration) (string, 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// 3. เซ็นรับรอง Token ด้วยคีย์ลับของเรา เพื่อเปลี่ยนมันให้เป็น String ยาวๆ ส่งออกไป
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString([]byte(secretKey))
 
 	if err != nil {
+		log.Printf("[JWT][SIGN_ERROR] %v", err)
 		return "", err
 	}
 

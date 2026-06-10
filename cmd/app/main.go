@@ -50,15 +50,15 @@ func main() {
 	validator.InitCustomValidators()
 
 	// ตั้งค่า CORS Middleware
-    // server.Use(cors.New(cors.Config{
-    //     AllowOrigins:     []string{"http://localhost:3000"}, // ใส่ URL ของ Frontend คุณ
-    //     AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-    //     AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-    //     AllowCredentials: true,
-    // }))
+    server.Use(cors.New(cors.Config{
+        AllowOrigins:     []string{"http://localhost:3000"}, // ใส่ URL ของ Frontend คุณ
+        AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+        AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+        AllowCredentials: true,
+    }))
 
     // หรือถ้าจะเอาแบบง่าย (อนุญาตหมดทุกที่ - ไม่ค่อยปลอดภัยแต่สะดวกตอนพัฒนา)
-    server.Use(cors.Default())
+    // server.Use(cors.Default())
 
 	routes.InitRouter(server, db)
 

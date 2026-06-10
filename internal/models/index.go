@@ -10,6 +10,7 @@ func Migrate(db *gorm.DB) error {
         &Role{},
         &RefreshToken{},
         &ResetPassword{},
+        &Prefix{},
         // &Post{},
         // &Product{}, // เพิ่มตารางใหม่ๆ ที่นี่ที่เดียว
     )

@@ -12,7 +12,7 @@ type RegisterSystemAdminRequest struct {
 	LastName	string 					`json:"last_name" binding:"required"`
 	Email 		string 					`json:"email" binding:"required,email"`
 	Password 	string 					`json:"password" binding:"required,min=8,max=16,strong_password"`
-	PrefixID	uuid.UUID				`form:"prefix_id" binding:"required"`
+	PrefixID	uuid.UUID				`json:"prefix_id" binding:"required"`
 }
 
 type RegisterUserRequest struct {

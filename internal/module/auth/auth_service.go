@@ -191,26 +191,29 @@ func (service *AuthService) ValidateRefreshTokenService(refreshToken string) (bo
 
 func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error) {
 	userName, isBlank := utils.IsBlank(req.UserName)
-    if isBlank { return "", "", nil, utils.NewBadRequestError("Username is required") }
+    if isBlank { return "", "", nil, utils.NewBadRequestError("username is required") }
 
-	user, err := service.repo.FineUserByUserName(strings.TrimSpace(userName))
+	client, isBlank := utils.IsBlank(req.Client)
+	if isBlank { return "", "", nil, utils.NewBadRequestError("client is required") }
+
+	user, err := service.repo.FineUserByUserName(userName)
 
 	if err != nil {
 		return "", "", nil, err
 	}
 
 	err = utils.ComparePassword(user.Password, req.Password)
-
+	
 	if err != nil {
 		return "", "", nil, err
 	}
 
 	userIDStr := user.ID.String()
 	roleIDStr := user.Role.ID.String()
-
+	
 	timeAccessTokenStr := os.Getenv("TIME_ACC_TOKEN")
 	timeRefreshTokenStr := os.Getenv("TIME_REF_TOKEN")
-
+	
 	if timeAccessTokenStr == "" || timeRefreshTokenStr == "" {
 		log.Println("Error: TIME_ACC_TOKEN OR TIME_REF_TOKEN is missing in .env")
 		// ถ้าลืมประกาศตัวแปรนี้ใน .env เลย ให้เบรกระบบทันที
@@ -226,7 +229,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	}
 
 	timeRefreshToken, err := strconv.Atoi(timeRefreshTokenStr)
-
+	
 	if err != nil {
 		log.Println("Admin Warning: TIME_REF_TOKEN in .env must be a number:", err)
 		return "", "", nil, errors.New("internal server error: invalid security configuration format")
@@ -236,7 +239,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	durationTimeRefreshToken := time.Hour * time.Duration(timeRefreshToken)
 
 	accessToken, err := utils.GenerateJWT(userIDStr, roleIDStr, durationTimeAccessToken)
-
+	
 	if err != nil {
 		return "", "", nil, errors.New("failed to generate access token")
 	}
@@ -248,13 +251,13 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	refreshTokenRecord := models.RefreshToken{
 		UserID: user.ID,
 		TokenHash: hashedToken,
-		ClientType: strings.TrimSpace(req.Client),
+		ClientType: client,
 		DeviceInfo: &userAgent,
 		IsRevoked: false,
 		ExpiresAt: time.Now().Add(durationTimeRefreshToken),
 		CreatedBy: user.ID,
 	}
-
+	log.Println("testttt", refreshToken, accessToken, hashedToken)
 	err = service.repo.CreateRefreshTokenRecord(&refreshTokenRecord)
 
 	if err != nil {

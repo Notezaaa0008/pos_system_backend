@@ -6,6 +6,7 @@ import (
 	"gin-quickstart/internal/models"
 	authdto "gin-quickstart/internal/module/auth/dto"
 	"gin-quickstart/pkg/utils"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -123,23 +124,19 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
-	
-	if err != nil {
-		var appErr *utils.AppError
 
-		if errors.As(err, &appErr) {
-            c.JSON(appErr.StatusCode, gin.H{
-                "status":  "error",
-                "message": appErr.Message,
-            })
-            return
-        }
-		
-		c.JSON(http.StatusInternalServerError, gin.H{
-            "status":  "error",
-            "message": "Internal server error. Something went wrong.",
-        })
-		return
+	if err != nil {
+		log.Printf(
+        	"[AUTH][LOGIN][REQUEST_INVALID] path=%s error=%v",
+        	c.Request.URL.Path,
+        	err,
+    	)
+
+    	c.JSON(http.StatusBadRequest, gin.H{
+        	"status":  "error",
+        	"message": "Invalid request payload",
+    	})
+    	return
 	}
 
 	// ดึงข้อมูลอุปกรณ์ (DeviceInfo) อัตโนมัติจาก HTTP Header
@@ -151,11 +148,23 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 	accessToken, refreshToken, user, err := authCtrl.service.LoginService(&req, userAgent)
 
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "invalid username or password.",
-        })
-		return
+		var appErr *utils.AppError
+
+    	if errors.As(err, &appErr) {
+        	c.JSON(appErr.StatusCode, gin.H{
+            	"status":  "error",
+            	"message": appErr.Message,
+        	})
+        	return
+    	}
+
+		log.Printf("[AUTH][LOGIN][UNEXPECTED_ERROR] %v", err)
+
+    	c.JSON(http.StatusInternalServerError, gin.H{
+        	"status":  "error",
+        	"message": "Internal server error",
+    	})
+    	return
 	}
 
 	accMaxAgeStr := os.Getenv("COOKIE_ACC_MAX_AGE")
@@ -203,6 +212,7 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
             "id":       	user.ID,         // หน้าบ้านอาจต้องใช้ผูกอ้างอิง
             "display_name": displayName,   // เอาไว้โชว์มุมขวาบนของเว็บ: "สวัสดีคุณ..."
             "role":     	user.Role.RoleName,   // เอาไว้ให้หน้าบ้านเช็กเพื่อ ซ่อน/แสดง ปุ่มเมนู
+			"image":		user.ImageUrl,
         },
     })
 }

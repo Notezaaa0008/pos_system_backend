@@ -76,7 +76,6 @@ func (repo *AuthRepository) FineUserByUserName(userName string) (*models.User, e
 
 		return nil, err
 	}
-
 	return &user, nil
 }
 
