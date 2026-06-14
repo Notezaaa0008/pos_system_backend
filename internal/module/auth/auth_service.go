@@ -257,7 +257,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 		ExpiresAt: time.Now().Add(durationTimeRefreshToken),
 		CreatedBy: user.ID,
 	}
-	log.Println("testttt", refreshToken, accessToken, hashedToken)
+	
 	err = service.repo.CreateRefreshTokenRecord(&refreshTokenRecord)
 
 	if err != nil {

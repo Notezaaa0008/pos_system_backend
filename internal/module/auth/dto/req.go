@@ -28,7 +28,7 @@ type RegisterUserRequest struct {
 }
 
 type LoginRequest struct {
-	UserName	string 					`json:"user_name" binding:"required"`
+	UserName	string 					`json:"username" binding:"required"`
 	Password	string 					`json:"password" binding:"required,min=8,max=16,strong_password"`
 	Client   	string 					`json:"client" binding:"required"`
 }

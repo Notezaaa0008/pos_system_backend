@@ -12,6 +12,7 @@ func InitCustomValidators() {
 	var (
 		hasUpperRegex   = regexp.MustCompile(`[A-Z]`)
 		hasLowerRegex   = regexp.MustCompile(`[a-z]`)
+		hasDigitRegex   = regexp.MustCompile(`[0-9]`)
 		hasSpecialRegex = regexp.MustCompile(`[!@#$%^&*(),.?":{}|<>]`)
 	)
 
@@ -25,6 +26,7 @@ func InitCustomValidators() {
 			// ยังคงเรียกใช้ได้ปกติ เพราะฟังก์ชันย่อยมองเห็นตัวแปรของฟังก์ชันแม่ (Closure)
 			return hasUpperRegex.MatchString(password) && 
 				   hasLowerRegex.MatchString(password) && 
+				   hasDigitRegex.MatchString(password) &&
 				   hasSpecialRegex.MatchString(password)
 		})
 	}

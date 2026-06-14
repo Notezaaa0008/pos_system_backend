@@ -54,18 +54,23 @@ func ParseAndValidateToken(tokenStr string) (*MyCustomClaims, error) {
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 
 	if secretKey == "" {
-		log.Println("Error: JWT_SECRET_KEY is missing in .env")
+		log.Println("[JWT ERROR] JWT_SECRET_KEY is missing in .env")
 		// ถ้าลืมประกาศตัวแปรนี้ใน .env เลย ให้เบรกระบบทันที
 		return nil, errors.New("JWT secret key is missing in environment configuration")
 	}
 
 	jwtSecret := []byte(secretKey)
 
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenStr, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+        // แนะนำให้ดักจับ Signing Method เพิ่มเติมเพื่อความปลอดภัย
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, errors.New("unexpected signing method")
+        }
+        return jwtSecret, nil
+    })
 
 	if err != nil || !token.Valid {
+		log.Printf("[JWT Warning] Token parsing failed: %v", err)
 		return nil, errors.New("invalid or expired token")
 	}
 

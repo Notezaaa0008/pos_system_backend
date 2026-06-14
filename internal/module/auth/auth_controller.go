@@ -37,6 +37,7 @@ func (authCtrl *AuthController) clearAuthCookies(c *gin.Context, isProduction bo
     // การใส่ MaxAge = -1 คือการตะโกนบอกเบราว์เซอร์ว่า "ลบคุกกี้ใบนี้ทิ้งซะเดี๋ยวนี้!"
     c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
     c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
+	c.SetCookie("user_role", "", -1, "/", "", isProduction, true)
 }
 
 func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
@@ -203,13 +204,21 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
     	true,  // 🔒 HttpOnly: true (กัน XSS)
 	)
 
+	c.SetCookie(
+ 	   "user_role",   
+    	user.Role.RoleName,      
+    	accMaxAge, // 15 นาที (หน่วยเป็นวินาที)
+    	"/", "", isProduction, 
+    	true,  // 🔒 HttpOnly: true (กัน XSS)
+	)
+
     displayName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
     
 	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successfully",
         "user": gin.H{
-            "id":       	user.ID,         // หน้าบ้านอาจต้องใช้ผูกอ้างอิง
+            "user_id":      user.ID,         // หน้าบ้านอาจต้องใช้ผูกอ้างอิง
             "display_name": displayName,   // เอาไว้โชว์มุมขวาบนของเว็บ: "สวัสดีคุณ..."
             "role":     	user.Role.RoleName,   // เอาไว้ให้หน้าบ้านเช็กเพื่อ ซ่อน/แสดง ปุ่มเมนู
 			"image":		user.ImageUrl,
@@ -222,6 +231,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 	allQuery := strings.TrimSpace(c.Query("all"))
 	allDevices, err := strconv.ParseBool(allQuery)
 	if err != nil {
+		log.Printf("[Logout Warning] Invalid 'all' query parameter value: '%s', error: %v", allQuery, err)
     	c.JSON(http.StatusBadRequest, gin.H{
         	"status":  "error",
         	"message": "Invalid query parameter 'all'. Must be a boolean value.",
@@ -231,6 +241,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
+		log.Printf("[Logout Warning] Refresh token missing from cookies. IP: %s", c.ClientIP())
     	c.JSON(http.StatusUnauthorized, gin.H{
         	"status":  "error",
         	"message": "Refresh token is missing. Please log in again.",
@@ -241,6 +252,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 	userId, err := utils.GetUserIDFromCtx(c)
 	
 	if err != nil {
+		log.Printf("[Logout ERROR] Failed to retrieve userID from context: %v. Ensure auth middleware is applied.", err)
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
         c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
         return
@@ -248,6 +260,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 
 	err = authCtrl.service.LogoutService(userId, refreshToken, allDevices)
     if err != nil {
+		log.Printf("[Logout ERROR] Service layer failed for UserID: %s, allDevices: %t, error: %v", userId, allDevices, err)
         c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to logout"})
         return
     }

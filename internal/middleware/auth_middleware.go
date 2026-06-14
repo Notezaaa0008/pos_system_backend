@@ -38,6 +38,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		// เราจะหันมาพึ่งพา Refresh Token
 		refreshToken, err := c.Cookie("refresh_token")
 		if err != nil {
+			log.Printf("[Middleware Warning] Both tokens missing or expired.")
 			// ถ้าไม่มีทั้งคู่แปลว่าไม่ได้ล็อกอินมา หรือลบคุกกี้ทิ้ง ส่ง 401 บล็อกไว้เลย
 			c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "unauthorized: session expired"})
 			c.Abort() // 🚨 สั่ง Gin ว่า: "เฮ้ย หยุดจ่ายงาน! ล็อกประตูเดี๋ยวนี้!"
@@ -47,6 +48,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		// ตรวจสอบไส้ในของ Refresh Token
 		refreshClaims, err := utils.ParseAndValidateToken(refreshToken)
 		if err != nil {
+			log.Printf("[Middleware Warning] Refresh token validation failed. Error: %v", err)
 			// 🚨 เคสที่ตั๋วหมดอายุจริง หรือ ตั๋วปลอม: สั่งทำลายคุกกี้เน่าบนเบราว์เซอร์ทิ้งทันที!
 			c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
 			c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
@@ -59,7 +61,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		isValid, err := authService.ValidateRefreshTokenService(refreshToken)
 
 		if err != nil {
-			log.Println("Database Error in Middleware:", err)
+			log.Printf("[Middleware ERROR] Database/Service error during refresh token validation: %v", err)
             // ❌ ไม่ลบคุกกี้! แค่แจ้งว่าระบบหลังบ้านมีปัญหาชั่วคราว
             c.JSON(http.StatusInternalServerError, gin.H{
                 "status": "error", 
@@ -70,7 +72,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		}
 
 		if !isValid {
-            log.Println("Warning: Refresh Token is invalid or revoked")
+            log.Printf("[Middleware Warning] Refresh Token has been revoked or invalid for UserID: %s", refreshClaims.UserID)
             // 🔴 ล้างคุกกี้เน่าทิ้งทันที เพราะตั๋วใบนี้ใช้ไม่ได้อีกต่อไปแล้ว
             c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
             c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
@@ -91,7 +93,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		timeAccessTokenStr := os.Getenv("TIME_ACC_TOKEN")
 
 		if timeAccessTokenStr == "" {
-			log.Println("Error: TIME_ACC_TOKEN is missing in .env")
+			log.Println("[Middleware ERROR] Security configuration missing: TIME_ACC_TOKEN is not set in .env")
             c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error: security configuration missing"})
             c.Abort()
             return
@@ -100,7 +102,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		timeAccessToken, err := strconv.Atoi(timeAccessTokenStr)
 	
 		if err != nil {
-			log.Println("Admin Warning: TIME_ACC_TOKEN in .env must be a number:", err)
+			log.Printf("[Middleware ERROR] Invalid format for TIME_ACC_TOKEN in .env: %v (must be an integer)", err)
             c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error: invalid security configuration format"})
             c.Abort()
             return
@@ -111,7 +113,7 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 		newAccessToken, err := utils.GenerateJWT(userIDStr, roleIDStr, durationTimeAccessToken) 
 
 		if err != nil {
-			log.Println("Error generating new access token:", err)
+			log.Printf("[Middleware ERROR] Failed to generate new access token for UserID %s: %v", userIDStr, err)
             c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "failed to renew session"})
             c.Abort()
             return
@@ -123,6 +125,14 @@ func AuthWithRefreshMiddleware(authService MiddlewareAuthService) gin.HandlerFun
 			newAccessToken,      
 			timeAccessToken, // 15 นาที (หน่วยวินาที)
 			"/", "", isProduction, true,  
+		)
+
+		c.SetCookie(
+			"user_role",   
+			roleIDStr,      
+			timeAccessToken, // 15 นาที (หน่วยวินาที)
+			"/", "", isProduction, 
+			true,  // 🔒 HttpOnly: true (กัน XSS)
 		)
 
 		// ฝังค่าลง Context ให้เรียบร้อยเพื่อส่งไม้ต่อให้ Controller
