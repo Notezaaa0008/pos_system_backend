@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gin-quickstart/internal/database"
-	"gin-quickstart/internal/models"
-	"gin-quickstart/internal/routes"
-	"gin-quickstart/pkg/validator"
 	"log"
 	"os"
+	"pos-system-backend/internal/database"
+	"pos-system-backend/internal/models"
+	"pos-system-backend/internal/routes"
+	"pos-system-backend/pkg/validator"
 	"time"
 
 	"github.com/gin-contrib/cors"

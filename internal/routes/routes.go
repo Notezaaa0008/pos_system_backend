@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"gin-quickstart/internal/middleware"
-	"gin-quickstart/internal/module/auth"
-	"gin-quickstart/internal/module/roles"
+	"pos-system-backend/internal/middleware"
+	"pos-system-backend/internal/module/auth"
+	"pos-system-backend/internal/module/roles"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -17,9 +17,9 @@ func InitRouter(server *gin.Engine, db *gorm.DB) {
 	roleModule := roles.InitModule(db)
 	authModule := auth.InitModule(db, roleModule)
 
-	authMiddleware := middleware.AuthWithRefreshMiddleware(authModule.Service)
+	authMiddleware := middleware.AuthMiddleware(authModule.Service)
 	
-	initAuthRoutes(v1, authModule.Controller, authMiddleware)
+	initAuthRoutes(v1, authModule.Controller, authModule.Service, authMiddleware)
 	initUserRoutes(v1, db)
 	
 }

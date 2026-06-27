@@ -2,9 +2,9 @@ package roles
 
 import (
 	"errors"
-	"gin-quickstart/internal/models"
-	roledto "gin-quickstart/internal/module/roles/dto"
-	"gin-quickstart/pkg/utils"
+	"pos-system-backend/internal/models"
+	roledto "pos-system-backend/internal/module/roles/dto"
+	"pos-system-backend/pkg/utils"
 	"strings"
 	"time"
 

@@ -3,12 +3,12 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"gin-quickstart/internal/models"
-	authdto "gin-quickstart/internal/module/auth/dto"
-	"gin-quickstart/pkg/utils"
 	"log"
 	"net/http"
 	"os"
+	"pos-system-backend/internal/models"
+	authdto "pos-system-backend/internal/module/auth/dto"
+	"pos-system-backend/pkg/utils"
 	"strconv"
 	"strings"
 
@@ -18,7 +18,7 @@ import (
 
 type authServiceInterface interface {
 	RegisterSystemAdminService(req *authdto.RegisterSystemAdminRequest) error
-	RegisterUserService(req *authdto.RegisterUserRequest, userId uuid.UUID) error
+	RegisterUserService(req *authdto.RegisterUserRequest, userId uuid.UUID, storeID uuid.UUID) error
 	LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error)
 	LogoutService(userId uuid.UUID, rawRefreshToken string, allDevices bool) error
 	ForgotPasswordService(req *authdto.ForgotPasswordRequest) error
@@ -37,7 +37,6 @@ func (authCtrl *AuthController) clearAuthCookies(c *gin.Context, isProduction bo
     // การใส่ MaxAge = -1 คือการตะโกนบอกเบราว์เซอร์ว่า "ลบคุกกี้ใบนี้ทิ้งซะเดี๋ยวนี้!"
     c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
     c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
-	c.SetCookie("user_role", "", -1, "/", "", isProduction, true)
 }
 
 func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
@@ -72,33 +71,42 @@ func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
-	userId, err := utils.GetUserIDFromCtx(c)
+	userID, err := utils.GetUserIDFromCtx(c)
 	
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
+		log.Printf("[RegisterUser ERROR] Failed to get userID from context: %v", err)
         c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
         return
     }
 
-	var req authdto.RegisterUserRequest
-
-	err = c.ShouldBindJSON(&req)
-	
+	storeID, err := utils.GetStoreIDFromCtx(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "invalid request body format",
-			"error":   err.Error(),
-		})
-		return
-	}
+        // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
+		log.Printf("[RegisterUser ERROR] Failed to get storeID from context: %v", err)
+        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
+        return
+    }
+	
+	var req authdto.RegisterUserRequest
+	err = c.ShouldBind(&req) // สำหรับ Form-data
+    if err != nil {
+		log.Printf("[RegisterUser WARN] Validation failed for user input form-data: %v", err)
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "invalid request body format",
+            "error":   err.Error(),
+        })
+        return
+    }
 
-	err = authCtrl.service.RegisterUserService(&req, userId)
+	err = authCtrl.service.RegisterUserService(&req, userID, storeID)
 
 	if err != nil {
 		var appErr *utils.AppError
 
 		if errors.As(err, &appErr) {
+			log.Printf("[RegisterUser WARN] Service validation error for user %s: %s (Status: %d)", req.Email, appErr.Message, appErr.StatusCode)
             c.JSON(appErr.StatusCode, gin.H{
                 "status":  "error",
                 "message": appErr.Message,
@@ -106,6 +114,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
             return
         }
 		
+		log.Printf("[RegisterUser CRITICAL ERROR] Internal crash while registering user %s: %v", req.Email, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "Internal server error. Something went wrong.",
@@ -204,24 +213,29 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
     	true,  // 🔒 HttpOnly: true (กัน XSS)
 	)
 
-	c.SetCookie(
- 	   "user_role",   
-    	user.Role.RoleName,      
-    	accMaxAge, // 15 นาที (หน่วยเป็นวินาที)
-    	"/", "", isProduction, 
-    	true,  // 🔒 HttpOnly: true (กัน XSS)
-	)
-
     displayName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+
+	var storeList []gin.H
+
+	if user.SystemRole != "SYSTEM_ADMIN" {
+        for _, us := range user.UserStores {
+            storeList = append(storeList, gin.H{
+                "store_id":   us.StoreID,
+                "store_name": us.Store.StoreName,
+                "role_name":  us.Role.RoleName,
+            })
+        }
+    }
     
 	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successfully",
         "user": gin.H{
-            "user_id":      user.ID,         // หน้าบ้านอาจต้องใช้ผูกอ้างอิง
-            "display_name": displayName,   // เอาไว้โชว์มุมขวาบนของเว็บ: "สวัสดีคุณ..."
-            "role":     	user.Role.RoleName,   // เอาไว้ให้หน้าบ้านเช็กเพื่อ ซ่อน/แสดง ปุ่มเมนู
-			"image":		user.ImageUrl,
+            "user_id":      user.ID,
+            "display_name": displayName,
+            "system_role":  user.SystemRole, // 👑 "SUPER_ADMIN" หรือ "USER"
+            "image":        user.ImageUrl,
+            "stores":       storeList,        // 🏪 ส่งลิสต์รายชื่อร้านค้ารวมทั้งหมดไปให้หน้าบ้าน
         },
     })
 }
@@ -229,19 +243,26 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 	// 🔄 ดึงค่า ?all=true ถ้าเป็นคำอื่นหรือไม่ได้ส่งมา จะได้ค่าเป็น false ทันที
 	allQuery := strings.TrimSpace(c.Query("all"))
-	allDevices, err := strconv.ParseBool(allQuery)
-	if err != nil {
-		log.Printf("[Logout Warning] Invalid 'all' query parameter value: '%s', error: %v", allQuery, err)
-    	c.JSON(http.StatusBadRequest, gin.H{
-        	"status":  "error",
-        	"message": "Invalid query parameter 'all'. Must be a boolean value.",
-    	})
-    	return
+	var allDevices bool
+	var err error
+
+	if allQuery == "" {
+		allDevices = false 
+	} else {
+		allDevices, err = strconv.ParseBool(allQuery)
+		if err != nil {
+			log.Printf("[AUTH][LOGOUT][BAD_REQUEST] invalid 'all' query value='%s' error=%v", allQuery, err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "Invalid query parameter 'all'. Must be a boolean value.",
+			})
+			return
+		}
 	}
 
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
-		log.Printf("[Logout Warning] Refresh token missing from cookies. IP: %s", c.ClientIP())
+		log.Printf("[Logout Warning] Refresh token missing from cookies.")
     	c.JSON(http.StatusUnauthorized, gin.H{
         	"status":  "error",
         	"message": "Refresh token is missing. Please log in again.",
@@ -250,7 +271,6 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 	}
 
 	userId, err := utils.GetUserIDFromCtx(c)
-	
 	if err != nil {
 		log.Printf("[Logout ERROR] Failed to retrieve userID from context: %v. Ensure auth middleware is applied.", err)
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
@@ -265,11 +285,9 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
         return
     }
 
-    // 5. ล้างคุกกี้หน้าบ้านทิ้งตามปกติ
+    // ล้างคุกกี้หน้าบ้านทิ้ง
     isProduction := os.Getenv("APP_ENV") == "production"
 	authCtrl.clearAuthCookies(c, isProduction)
-    // c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
-    // c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
 
     c.JSON(http.StatusOK, gin.H{"status": "success", "message": "logged out successfully"})
 
@@ -282,6 +300,7 @@ func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
 	err := c.ShouldBindJSON(&req)
 	
 	if err != nil {
+		log.Printf("[ForgotPassword WARN] Invalid request body or email format format: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": "invalid request body format",
@@ -293,12 +312,24 @@ func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
 	err = authCtrl.service.ForgotPasswordService(&req)
 	
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": err.Error(),
-		})
-		return
-	}
+        var appErr *utils.AppError
+        
+        // 🔍 เคสโดนดักด้วย Business Logic ที่เราตั้งใจพ่นออกมา (เช่น คอนฟิกใน .env หาย)
+        if errors.As(err, &appErr) {
+            log.Printf("[ForgotPassword WARN] Service process stopped for %s: %s (Status: %d)", req.Email, appErr.Message, appErr.StatusCode)
+            // ถ้าเป็นแอปทั่วไปจะส่ง 200 หลอกหน้าบ้านไปเลยเพื่อความปลอดภัย แต่ถ้าอยากให้หน้าบ้านรู้ภายในก็ส่งตาม AppError ครับ
+            c.JSON(appErr.StatusCode, gin.H{"status": "error", "message": appErr.Message})
+            return
+        }
+
+        // 🚨 เคสที่ระบบแครช/DB ล่ม/เน็ตดับ (Unexpected Error)
+        log.Printf("[ForgotPassword CRITICAL ERROR] Crash while processing reset password for %s: %v", req.Email, err)
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Internal server error. Something went wrong.",
+        })
+        return
+    }
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
@@ -312,6 +343,7 @@ func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
 	err := c.ShouldBindJSON(&req)
 
 	if err != nil {
+		log.Printf("[ResetPassword WARN] Invalid JSON body submitted: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": "invalid request body format",
@@ -322,21 +354,21 @@ func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
 
 	err = authCtrl.service.ResetPasswordService(&req)
 	if err != nil {
-		// แยกแยะเคส: ถ้า Error เกิดจากตั๋วหมดอายุ/ปลอม (ที่เราเขียนดักไว้ใน Service)
-		if err.Error() == "invalid or expired token" {
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": err.Error()})
-			return
-		}
-		
-		// เคสอื่นๆ เช่น DB พัง สั่งพ่น 500 กลับไป
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "failed to reset password"})
-		return
+		var appErr *utils.AppError
+        
+        if errors.As(err, &appErr) {
+            log.Printf("[ResetPassword WARN] Request rejected by service: %s (Status: %d)", appErr.Message, appErr.StatusCode)
+            c.JSON(appErr.StatusCode, gin.H{"status": "error", "message": appErr.Message})
+            return
+        }
+        
+        log.Printf("[ResetPassword CRITICAL ERROR] Internal engine crash during reset processing: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "failed to reset password"})
+        return
 	}
 
 	isProduction := os.Getenv("APP_ENV") == "production"
 	authCtrl.clearAuthCookies(c, isProduction)
-	// c.SetCookie("access_token", "", -1, "/", "", isProduction, true)
-	// c.SetCookie("refresh_token", "", -1, "/", "", isProduction, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",

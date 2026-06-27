@@ -2,9 +2,9 @@ package roles
 
 import (
 	"errors"
-	roledto "gin-quickstart/internal/module/roles/dto"
-	"gin-quickstart/pkg/utils"
 	"net/http"
+	roledto "pos-system-backend/internal/module/roles/dto"
+	"pos-system-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

@@ -10,12 +10,12 @@ import (
 )
 
 type MyCustomClaims struct {
-	UserID string `json:"user_id"`
-	RoleID string `json:"role_id"`
+	UserID 		string `json:"user_id"`
+	SystemRole 	string `json:"system_role"`
 	jwt.RegisteredClaims // ฟิลด์มาตรฐาน เช่น exp (หมดอายุ), iat (เวลาที่สร้าง)
 }
 
-func GenerateJWT(userID string, roleID string, duration time.Duration) (string, error){
+func GenerateJWT(userID string, systemRole string, duration time.Duration) (string, error){
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 
 	if secretKey == "" {
@@ -27,7 +27,7 @@ func GenerateJWT(userID string, roleID string, duration time.Duration) (string, 
 	// จัดเตรียมข้อมูลสิทธิ์ที่ต้องการฝังลงใน Token
 	claims := MyCustomClaims{
 		UserID: userID,
-		RoleID: roleID,
+		SystemRole: systemRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			// กำหนดเวลาหมดอายุ (ยึดตาม duration ที่ส่งเข้ามา)
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),

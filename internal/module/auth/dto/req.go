@@ -7,7 +7,6 @@ import (
 )
 
 type RegisterSystemAdminRequest struct {
-	UserName	string 					`json:"user_name" binding:"required"`
 	FirstName	string 					`json:"first_name" binding:"required"`
 	LastName	string 					`json:"last_name" binding:"required"`
 	Email 		string 					`json:"email" binding:"required,email"`
@@ -16,7 +15,6 @@ type RegisterSystemAdminRequest struct {
 }
 
 type RegisterUserRequest struct {
-	UserName	string 					`form:"user_name" binding:"required"`
 	FirstName	string 					`form:"first_name" binding:"required"`
 	LastName	string 					`form:"last_name" binding:"required"`
 	Email 		string 					`form:"email" binding:"required,email"`
@@ -28,7 +26,7 @@ type RegisterUserRequest struct {
 }
 
 type LoginRequest struct {
-	UserName	string 					`json:"username" binding:"required"`
+	Email 		string 					`form:"email" binding:"required,email"`
 	Password	string 					`json:"password" binding:"required,min=8,max=16,strong_password"`
 	Client   	string 					`json:"client" binding:"required"`
 }

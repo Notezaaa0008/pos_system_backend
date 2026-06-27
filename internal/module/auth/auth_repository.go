@@ -2,7 +2,8 @@ package auth
 
 import (
 	"errors"
-	"gin-quickstart/internal/models"
+	"log"
+	"pos-system-backend/internal/models"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,14 +19,10 @@ func NewAuthRepository (db *gorm.DB) *AuthRepository {
 }
 
 // Get
-func (repo *AuthRepository) CheckSystemAdminExists(rolesID uuid.UUID) (bool, error) {
-	if rolesID == uuid.Nil {
-		return false, errors.New("roles id is required.")
-	}
-
+func (repo *AuthRepository) CheckSystemAdminExists(systemRole string) (bool, error) {
 	var user models.User
 	
-	err := repo.db.Select("id").Where("role_id = ?", rolesID).First(&user).Error
+	err := repo.db.Select("id").Where("system_role = ?", systemRole).First(&user).Error
 
 	if err != nil {
         if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -37,6 +34,18 @@ func (repo *AuthRepository) CheckSystemAdminExists(rolesID uuid.UUID) (bool, err
 
 	// เจอทั้ง Role และเจอทั้ง User ที่มีสิทธิ์นี้
     return true, nil
+}
+
+func (repo *AuthRepository) CheckPermission(userID uuid.UUID, storeID uuid.UUID) (*models.UserStore, error) {
+	var userStore models.UserStore
+
+	err := repo.db.Preload("Role").Where("user_id = ? AND store_id = ?", userID, storeID).First(&userStore).Error
+
+	if err != nil {
+        return nil, err // ส่ง error กลับไป (เช่น gorm.ErrRecordNotFound)
+    }
+
+    return &userStore, nil
 }
 
 func (repo *AuthRepository) CheckRefreshTokenValid(hashedRefreshToken string) (bool, error) {
@@ -60,35 +69,25 @@ func (repo *AuthRepository) CheckRefreshTokenValid(hashedRefreshToken string) (b
 	return count > 0, nil
 }
 
-func (repo *AuthRepository) FineUserByUserName(userName string) (*models.User, error){
-	if userName == "" {
-		return nil, errors.New("user name is required.")
-	}
 
-	var user models.User
-
-	err := repo.db.Preload("Role").Where("user_name = ? AND is_active = ?", userName, true).First(&user).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil , errors.New("system error: invalid username or password.")
-		}
-
-		return nil, err
-	}
-	return &user, nil
-}
-
-func (repo *AuthRepository) FindUserByEmail(email string) (*models.User, error) {
+func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*models.User, error) {
 	if email == "" {
 		return nil, errors.New("email is required.")
 	}
 
 	var user models.User
-	// ถ้าหาไม่เจอจะคือเป็น error ถ้าใช้ First
-	err := repo.db.Where("email = ?", email).First(&user).Error
-	if err != nil {
-		return nil, err
+
+	if(findType == "LOGIN"){
+		// ถ้าหาไม่เจอจะคืนเป็น error ถ้าใช้ First
+		err := repo.db.Preload("UserStore.Store").Preload("UserStores.Role").Where("email = ? AND is_active = ?", email, true).First(&user).Error
+		if err != nil {
+			return nil, err
+		}
+	}else {
+		err := repo.db.Where("email = ? AND is_active = ?", email, true).First(&user).Error
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &user, nil
@@ -109,7 +108,7 @@ func (repo *AuthRepository) FindValidResetToken(token string) (*models.ResetPass
 }
 
 // Create
-func (repo *AuthRepository) CreateUser(userData *models.User) error {
+func (repo *AuthRepository) CreateUserSystemAdmin(userData *models.User) error {
 	if userData == nil {
 		return errors.New("data user is required.")
 	}
@@ -117,8 +116,45 @@ func (repo *AuthRepository) CreateUser(userData *models.User) error {
 	err := repo.db.Create(userData).Error
 
 	if err != nil {
+		log.Printf("[Repository CreateUserSystemAdmin DATABASE ERROR] Failed to insert system admin (%s): %v", userData.Email, err)
 		return err
 	}
+
+	return nil
+}
+
+func (repo *AuthRepository) CreateUser(userData *models.User, userStoreData *models.UserStore) error {
+	if userData == nil || userStoreData == nil {
+        return errors.New("user data and store permission data are required")
+    }
+
+	tx := repo.db.Begin()
+    if tx.Error != nil {
+		log.Printf("[Repository CreateUser DATABASE ERROR] Failed to start transaction for user %s: %v", userData.Email, tx.Error)
+        return tx.Error
+    }
+
+	err := tx.Create(userData).Error
+	if  err != nil {
+		log.Printf("[Repository CreateUser DATABASE ERROR] Step 1 failed -> Inserting user record (%s): %v. Rolling back...", userData.Email, err)
+        tx.Rollback() // 🚨 พังตรงนี้ให้ยกเลิกทั้งหมดทันที
+        return err
+    }
+
+	userStoreData.UserID = userData.ID
+
+	err = tx.Create(userStoreData).Error
+	if err != nil {
+		log.Printf("[Repository CreateUser DATABASE ERROR] Step 2 failed -> Inserting user_store permission for user %s (StoreID: %s, RoleID: %s): %v. Rolling back...", userData.Email, userStoreData.StoreID.String(), userStoreData.RoleID.String(), err)
+        tx.Rollback() // 🚨 หากผูกสิทธิ์พัง ให้กดยกเลิกการสร้าง User ก่อนหน้าไปด้วยเพื่อความปลอดภัย
+        return err
+    }
+
+	err = tx.Commit().Error
+    if err != nil {
+        log.Printf("[Repository CreateUser DATABASE ERROR] Transaction commit failed for user %s: %v", userData.Email, err)
+        return err
+    }
 
 	return nil
 }
@@ -137,7 +173,7 @@ func (repo *AuthRepository) CreateRefreshTokenRecord(refreshTokenData *models.Re
 	return nil
 }
 
-func (repo *AuthRepository) CreateResetPassword(reset *models.ResetPassword) error{
+func (repo *AuthRepository) CreateResetPassword(reset *models.ResetPassword) error {
 	if reset == nil {
 		return errors.New("data reset password is required.")
 	}
@@ -149,6 +185,20 @@ func (repo *AuthRepository) CreateResetPassword(reset *models.ResetPassword) err
 	}
 
 	return nil
+}
+
+func (repo *AuthRepository) CreateLogEmail(logEmail *models.LogSendEmail) error {
+	if logEmail == nil {
+        return errors.New("log email data is required")
+    }
+
+	err := repo.db.Create(logEmail).Error
+    if err != nil {
+        log.Printf("[Repository CreateLogEmail DATABASE ERROR] Failed to insert email log for %s: %v", logEmail.Recipient, err)
+        return err
+    }
+
+    return nil
 }
 
 // Update
@@ -168,44 +218,83 @@ func (repo *AuthRepository) RevokeRefreshToken(userID uuid.UUID, hashedToken str
 }
 
 func (repo *AuthRepository) UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error {
-	if userID == uuid.Nil {
-		return errors.New("user id is required.")
-	}
+	if userID == uuid.Nil || hashedPwd == "" || resetID == uuid.Nil {
+        return errors.New("missing required arguments for updating password and revoking token")
+    }
+    
+    tx := repo.db.Begin()
+    if tx.Error != nil {
+        log.Printf("[Repository ResetPassword DATABASE ERROR] Failed to start tx: %v", tx.Error)
+        return tx.Error
+    }
 
-	if hashedPwd == "" {
-		return errors.New("hashed password is required.")
-	}
+    // ขั้นตอนที่ 1: อัปเดตรหัสผ่านใหม่ให้กับตาราง User หลัก
+    resultUser := tx.Model(&models.User{}).Where("id = ?", userID).Update("password", hashedPwd)
+    if resultUser.Error != nil {
+        log.Printf("[Repository ResetPassword DATABASE ERROR] Step 1 failed -> Updating user password: %v. Rolling back...", resultUser.Error)
+        tx.Rollback()
+        return resultUser.Error
+    }
+    if resultUser.RowsAffected == 0 {
+        log.Printf("[Repository ResetPassword WARN] Step 1 failed -> User %s not found. Rolling back...", userID.String())
+        tx.Rollback()
+        return errors.New("user not found, password update failed")
+    }
 
-	if resetID == uuid.Nil {
-		return errors.New("reset id is required.")
-	}
-	
-	tx := repo.db.Begin()
+    // ขั้นตอนที่ 2: อัปเดตสถานะตั๋วใบนี้ว่าโดนใช้งานไปเรียบร้อยแล้ว (Prevent Replay Attack)
+    resultReset := tx.Model(&models.ResetPassword{}).Where("id = ?", resetID).Update("is_used", true)
+    if resultReset.Error != nil {
+        log.Printf("[Repository ResetPassword DATABASE ERROR] Step 2 failed -> Updating reset token state: %v. Rolling back...", resultReset.Error)
+        tx.Rollback()
+        return resultReset.Error
+    }
+    if resultReset.RowsAffected == 0 {
+        log.Printf("[Repository ResetPassword WARN] Step 2 failed -> Reset token %s is already invalid. Rolling back...", resetID.String())
+        tx.Rollback()
+        return errors.New("reset token is invalid or has already been used")
+    }
 
-	// 1. อัปเดตรหัสผ่านใหม่ให้ User
-	resultUser := tx.Model(&models.User{}).Where("id = ?", userID).Update("password", hashedPwd);
-	if resultUser.Error != nil {
-    	tx.Rollback()
-    	return resultUser.Error
-	}
+    // ขั้นตอนที่ 3: สั่งกวาดล้างและยกเลิก Refresh Token (Session) ทั้งหมดของยูสเซอร์คนนี้ที่เคยเปิดทิ้งไว้เครื่องอื่น
+    // 💡 รันผ่านตัวแปร tx เพื่อความปลอดภัยของธุรกรรม
+    err := tx.Model(&models.RefreshToken{}).
+        Where("user_id = ? AND is_revoked = ? AND expires_at > ?", userID, false, time.Now()).
+        Update("is_revoked", true).Error
+        
+    if err != nil {
+        log.Printf("[Repository ResetPassword DATABASE ERROR] Step 3 failed -> Revoking active refresh tokens: %v. Rolling back...", err)
+        tx.Rollback()
+        return err
+    }
 
-	if resultUser.RowsAffected == 0 {
-    	tx.Rollback() // 🛑 สั่งถอยทันที เพราะแปลว่าหาตัวยูสเซอร์ไม่เจอ!
-    	return errors.New("user not found, password update failed")
-	}
+    // 🎉 ทุกด่านสมบูรณ์แบบ ทำการเซฟลงดิสก์ถาวร
+    err = tx.Commit().Error
+    if err != nil {
+        log.Printf("[Repository ResetPassword DATABASE ERROR] Transaction commit crashed: %v", err)
+        return err
+    }
 
-	// 2. อัปเดตตั๋วใบนี้ว่า "ใช้แล้ว" (is_used = true)
-	resultReset := tx.Model(&models.ResetPassword{}).Where("id = ?", resetID).Update("is_used", true);
-	if resultReset.Error != nil {
-    	tx.Rollback()
-    	return resultReset.Error
-	}
-	
-	if resultReset.RowsAffected == 0 {
-    	tx.Rollback() // 🛑 สั่งถอย ตั๋วนี้อาจจะหมดอายุ ถูกใช้ไปแล้ว หรือ ID ปลอม
-    	return errors.New("reset token is invalid or has already been used")
-	}
+    return nil
+}
 
-	return tx.Commit().Error
+func (repo *AuthRepository) UpdateLogEmailStatus(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error {
+	now := time.Now()
+
+	updates := map[string]interface{}{
+        "status":     status,
+        "updated_at": &now,
+		"updated_by": userID,
+    }
+
+	if errMsg != nil {
+        updates["error_message"] = *errMsg
+    }
+
+	err := repo.db.Model(&models.LogSendEmail{}).Where("id = ?", logID).Updates(updates).Error
+    if err != nil {
+        log.Printf("[Repository UpdateLogEmailStatus DATABASE ERROR] Failed to update log ID %s to %s: %v", logID.String(), status, err)
+        return err
+    }
+
+    return nil
 }
 

@@ -25,3 +25,22 @@ func GetUserIDFromCtx(c *gin.Context) (uuid.UUID, error) {
 
 	return userUUID, nil
 }
+
+func GetStoreIDFromCtx(c *gin.Context) (uuid.UUID, error) {
+	storeID, exists := c.Get("storeID")
+	if !exists {
+		return uuid.Nil, errors.New("unauthorized: missing store id in context")
+	}
+
+	storeIDStr, ok := storeID.(string)
+	if !ok {
+		return uuid.Nil, errors.New("internal: store id context is not a string")
+	}
+
+	storeUUID, err := uuid.Parse(storeIDStr)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return storeUUID, nil
+}

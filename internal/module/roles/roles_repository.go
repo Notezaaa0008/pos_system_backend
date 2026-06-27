@@ -3,8 +3,8 @@ package roles
 import (
 	"errors"
 	"fmt"
-	"gin-quickstart/internal/models"
 	"log"
+	"pos-system-backend/internal/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

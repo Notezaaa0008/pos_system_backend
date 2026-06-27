@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"gin-quickstart/internal/module/roles"
+	"pos-system-backend/internal/module/roles"
 
 	"gorm.io/gorm"
 )

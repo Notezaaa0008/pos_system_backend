@@ -19,6 +19,5 @@ type Role struct {
 	DeletedAt  		*gorm.DeletedAt	`gorm:"index"`
 	DeletedBy		*uuid.UUID		`gorm:"type:uuid;"`
 
-	// Has Many: บอก GORM ว่า Role หนึ่งอัน สามารถเชื่อมไปหา User ได้หลายคน
-	Users	  		[]User    		`gorm:"foreignKey:RoleID"`
+	UserStores 		[]UserStore		`gorm:"foreignKey:RoleID"`
 }
