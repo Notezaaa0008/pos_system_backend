@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"pos-system-backend/internal/models"
 	"time"
@@ -79,11 +80,12 @@ func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*mod
 
 	if(findType == "LOGIN"){
 		// ถ้าหาไม่เจอจะคืนเป็น error ถ้าใช้ First
-		err := repo.db.Preload("UserStore.Store").Preload("UserStores.Role").Where("email = ? AND is_active = ?", email, true).First(&user).Error
+		err := repo.db.Preload("UserStores.Store").Preload("UserStores.Role").Where("email = ? AND is_active = ?", email, true).First(&user).Error
+		fmt.Println(err)
 		if err != nil {
 			return nil, err
 		}
-	}else {
+	} else {
 		err := repo.db.Where("email = ? AND is_active = ?", email, true).First(&user).Error
 		if err != nil {
 			return nil, err
