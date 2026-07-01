@@ -331,8 +331,7 @@ func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken stri
 	// 🔒 ทำการแฮช Token ดิบให้เป็นค่า SHA-256 อยู่ในชั้นนี้ตามกฎธุรกิจ
 	hashedToken := utils.HashToken(rawRefreshToken)
 
-	// ส่ง (uuid.Nil, hashedToken) -> Repo จะเจาะจงทำลายใบนี้ทันที
-	err := service.repo.RevokeRefreshToken(uuid.Nil, hashedToken)
+	err := service.repo.RevokeRefreshToken(userId, hashedToken)
 	if err != nil {
 		log.Printf("[AUTH][LOGOUT_SERVICE][REVOKE_SINGLE_FAILED] userID=%s error=%v", userId, err)
 		return err

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"pos-system-backend/internal/models"
 	"time"
@@ -81,7 +80,6 @@ func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*mod
 	if(findType == "LOGIN"){
 		// ถ้าหาไม่เจอจะคืนเป็น error ถ้าใช้ First
 		err := repo.db.Preload("UserStores.Store").Preload("UserStores.Role").Where("email = ? AND is_active = ?", email, true).First(&user).Error
-		fmt.Println(err)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +214,21 @@ func (repo *AuthRepository) RevokeRefreshToken(userID uuid.UUID, hashedToken str
 		return errors.New("either hashed token or user id is required to revoke sessions")
 	}
 
-	return query.Update("is_revoked", true).Error
+	updates := map[string]interface{}{
+        "is_revoked": true,
+        "updated_at": time.Now(),
+		"updated_by": userID,
+    }
+
+	err := query.Updates(updates).Error
+
+	if err != nil {
+        log.Printf("[Repository RevokeRefreshToken DATABASE ERROR] Failed to revoke session (User: %s, HasToken: %t): %v", 
+            userID.String(), hashedToken != "", err)
+        return err
+    }
+
+    return nil
 }
 
 func (repo *AuthRepository) UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error {
