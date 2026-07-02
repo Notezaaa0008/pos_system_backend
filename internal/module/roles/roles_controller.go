@@ -12,8 +12,8 @@ import (
 
 type rolesServiceInterface interface {
 	GetAllRolesService() ([]roledto.GetAllRoleResponse, error)
-    CreateRoleService(req *roledto.CreateRoleRequest, userId uuid.UUID) error
-	UpadateRoleService(req *roledto.UpdateRoleRequest, userId uuid.UUID) error
+    CreateRoleService(req *roledto.CreateRoleRequest, userID uuid.UUID) error
+	UpadateRoleService(req *roledto.UpdateRoleRequest, userID uuid.UUID, roleID uuid.UUID) error
 }
 
 type RolesController struct {
@@ -39,13 +39,13 @@ func (roleClrt *RolesController) GetAllRolesController(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "successfully retrieved active roles",
-        "data":    roles, // หน้าบ้านจะแกะข้อมูลจาก Field "data" อันนี้ไปใช้ต่อ
+        "data":  roles, // หน้าบ้านจะแกะข้อมูลจาก Field "data" อันนี้ไปใช้ต่อ
     })
 
 }
 
 func (roleClrt *RolesController) CreateRoleController(c *gin.Context) {
-	userId, err := utils.GetUserIDFromCtx(c)
+	userId, err := utils.GetFromCtx(c, "userID")
 	
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
@@ -83,8 +83,22 @@ func (roleClrt *RolesController) CreateRoleController(c *gin.Context) {
 }
 
 func (roleClrt *RolesController) UpdateRoleController(c *gin.Context) {
-	userId, err := utils.GetUserIDFromCtx(c)
-	
+	roleIDStr := c.Param("id") 
+    if roleIDStr == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "missing role ID"})
+        return
+    }
+
+	roleID, err := uuid.Parse(roleIDStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "invalid role ID format: must be a valid UUID",
+        })
+        return
+    }
+
+	userID, err := utils.GetFromCtx(c, "userID")
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
         c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
@@ -104,7 +118,7 @@ func (roleClrt *RolesController) UpdateRoleController(c *gin.Context) {
 		return
 	}
 
-	err = roleClrt.service.UpadateRoleService(&req, userId)
+	err = roleClrt.service.UpadateRoleService(&req, userID, roleID)
 
 	if err != nil {
 		var appErr *utils.AppError

@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func initAuthRoutes(routesGroup *gin.RouterGroup, authCtrl *auth.AuthController, authService *auth.AuthService, middleware gin.HandlerFunc) {
+func initAuthRoutes(routesGroup *gin.RouterGroup, authCtrl *auth.AuthController, authService *auth.AuthService, authMiddleware gin.HandlerFunc) {
 
 	
 	
@@ -18,7 +18,7 @@ func initAuthRoutes(routesGroup *gin.RouterGroup, authCtrl *auth.AuthController,
         auth.POST("/reset-password", authCtrl.ResetPasswordController)
 
 		protectedAuth := auth.Group("/")
-		protectedAuth.Use(middleware) 
+		protectedAuth.Use(authMiddleware) 
 		{
 			// middleware.permissionMiddleware(authService, "MANAGER", "CASHIER")
 			protectedAuth.POST("/logout", authCtrl.LogoutController)

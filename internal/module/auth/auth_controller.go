@@ -71,7 +71,7 @@ func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
-	userID, err := utils.GetUserIDFromCtx(c)
+	userID, err := utils.GetFromCtx(c, "userID")
 	
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
@@ -80,7 +80,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
         return
     }
 
-	storeID, err := utils.GetStoreIDFromCtx(c)
+	storeID, err := utils.GetFromCtx(c, "storeID")
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
 		log.Printf("[RegisterUser ERROR] Failed to get storeID from context: %v", err)
@@ -270,7 +270,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
     	return
 	}
 
-	userId, err := utils.GetUserIDFromCtx(c)
+	userId, err := utils.GetFromCtx(c, "userID")
 	if err != nil {
 		log.Printf("[Logout ERROR] Failed to retrieve userID from context: %v. Ensure auth middleware is applied.", err)
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย

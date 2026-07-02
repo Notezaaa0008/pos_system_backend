@@ -82,7 +82,10 @@ func (repo *RolesRepository) UpdateRole(roleData *models.Role) error {
 	// 🚀 ใช้ Updates ของ GORM ในการบันทึกข้อมูลลง Database
     // .Model() บอก GORM ว่าจะอัปเดตแถวไหน โดยอ้างอิงจาก ID ที่อยู่ในตัวแปร roleData
     // .Updates() จะทำการอัปเดตเฉพาะฟิลด์ที่มีการเปลี่ยนแปลงส่งเข้ามา
-    result := repo.db.Model(&models.Role{}).Where("id = ?", roleData.ID).Updates(roleData)
+	// .Select("*") หรือระบุฟิลด์ เพื่อบอก GORM ว่า "ฟิลด์ไหนที่เป็น false หรือค่าว่าง ก็ให้อัปเดตลงไปด้วยนะ"
+    result := repo.db.Model(&models.Role{}).Where("id = ?", roleData.ID).
+	Select("role_name", "description", "is_active", "updated_at").
+	Updates(roleData)
     
     // 1. เช็กว่าเกิด Error ระหว่างยิง SQL ไหม (เช่น Database ล่ม หรือ Constraint พัง)
     if result.Error != nil {

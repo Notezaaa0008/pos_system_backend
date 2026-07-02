@@ -15,7 +15,7 @@ type MiddlewarePermissionService interface {
 	ValidatePermissionService(userIDStr string, storeIDStr string) (*models.UserStore, error)
 }
 
-func permissionMiddleware(authService MiddlewarePermissionService, allowedRoles ...string) gin.HandlerFunc {
+func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, userExists := c.Get("userID")
 		systemRole, roleExists := c.Get("systemRole")

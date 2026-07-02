@@ -61,7 +61,7 @@ func (service *RolesService) GetAllRolesService() ([]roledto.GetAllRoleResponse,
 	return responseRoles, nil
 }
 
-func (service *RolesService) CreateRoleService(req *roledto.CreateRoleRequest, userId uuid.UUID) error {
+func (service *RolesService) CreateRoleService(req *roledto.CreateRoleRequest, userID uuid.UUID) error {
 	roleName, isBlank :=utils.IsBlank(req.RoleName)
 
 	if isBlank {
@@ -74,7 +74,7 @@ func (service *RolesService) CreateRoleService(req *roledto.CreateRoleRequest, u
 		RoleName: roleName,
 		Description: &trimDescription,
 		IsActive: true,
-		CreatedBy: userId,
+		CreatedBy: userID,
 	}
 
 	err := service.repo.CreateRole(&roleData)
@@ -86,7 +86,7 @@ func (service *RolesService) CreateRoleService(req *roledto.CreateRoleRequest, u
 	return nil
 }
 
-func (service *RolesService) UpadateRoleService(req *roledto.UpdateRoleRequest, userId uuid.UUID) error {
+func (service *RolesService) UpadateRoleService(req *roledto.UpdateRoleRequest, userID uuid.UUID, roleID uuid.UUID) error {
 	roleName, isBlank :=utils.IsBlank(req.RoleName)
 
 	if isBlank {
@@ -96,7 +96,7 @@ func (service *RolesService) UpadateRoleService(req *roledto.UpdateRoleRequest, 
 	trimDescription := strings.TrimSpace(req.Description)
 
 	roleData := models.Role{
-		ID: req.ID,
+		ID: roleID,
 		RoleName: roleName,
 		Description: &trimDescription,
 		IsActive: *req.IsActive,

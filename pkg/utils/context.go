@@ -2,45 +2,36 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-func GetUserIDFromCtx(c *gin.Context) (uuid.UUID, error) {
-	userID, exists := c.Get("userID")
+func GetFromCtx(c *gin.Context, name string) (uuid.UUID, error) {
+	if name == "" {
+		return uuid.Nil, errors.New("context key name cannot be empty")
+	}
+
+	value, exists := c.Get(name)
 	if !exists {
-		return uuid.Nil, errors.New("unauthorized: missing user id in context")
+		return uuid.Nil, fmt.Errorf("unauthorized: missing %s in context", name)
 	}
 
-	userIDStr, ok := userID.(string)
+	parsedUUID, ok := value.(uuid.UUID)
+	if ok {
+		return parsedUUID, nil
+	}
+
+	idStr, ok := value.(string)
 	if !ok {
-		return uuid.Nil, errors.New("internal: user id context is not a string")
+		return uuid.Nil, fmt.Errorf("internal: context key %s is not a string", name)
 	}
 
-	userUUID, err := uuid.Parse(userIDStr)
+	parsedUUID, err := uuid.Parse(idStr)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, fmt.Errorf("invalid uuid format for %s: %w", name, err)
 	}
 
-	return userUUID, nil
-}
-
-func GetStoreIDFromCtx(c *gin.Context) (uuid.UUID, error) {
-	storeID, exists := c.Get("storeID")
-	if !exists {
-		return uuid.Nil, errors.New("unauthorized: missing store id in context")
-	}
-
-	storeIDStr, ok := storeID.(string)
-	if !ok {
-		return uuid.Nil, errors.New("internal: store id context is not a string")
-	}
-
-	storeUUID, err := uuid.Parse(storeIDStr)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return storeUUID, nil
+	return parsedUUID, nil
 }

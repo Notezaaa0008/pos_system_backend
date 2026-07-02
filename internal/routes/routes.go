@@ -20,6 +20,7 @@ func InitRouter(server *gin.Engine, db *gorm.DB) {
 	authMiddleware := middleware.AuthMiddleware(authModule.Service)
 	
 	initAuthRoutes(v1, authModule.Controller, authModule.Service, authMiddleware)
+	initRoleRoutes(v1, roleModule.Controller, authModule.Service, authMiddleware)
 	initUserRoutes(v1, db)
 	
 }
