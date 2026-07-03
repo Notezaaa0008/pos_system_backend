@@ -14,7 +14,7 @@ func initRoleRoutes(routesGroup *gin.RouterGroup, roleCtrl *roles.RolesControlle
 		protectedRole := role.Group("/")
 		protectedRole.Use(authMiddleware)
 		{
-			protectedRole.GET("/all-role", middleware.PermissionMiddleware(authService, "SYSTEM_ADMIN"), roleCtrl.GetAllRolesController)
+			protectedRole.GET("/all-role", middleware.PermissionMiddleware(authService, "OWNER", "MANAGER"), roleCtrl.GetAllRolesController)
 
 			protectedRole.POST("/create", middleware.PermissionMiddleware(authService, "SYSTEM_ADMIN"), roleCtrl.CreateRoleController)
 		
