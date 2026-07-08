@@ -7,6 +7,6 @@ type StoreController struct {
 	service storeServiceInterface
 }
 
-func NewPrefixController(service storeServiceInterface) *StoreController {
+func NewStoreController(service storeServiceInterface) *StoreController {
 	return &StoreController{service: service}
 }
