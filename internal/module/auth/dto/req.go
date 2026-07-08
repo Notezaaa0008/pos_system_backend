@@ -1,4 +1,4 @@
-package authdto
+package authDto
 
 import (
 	"mime/multipart"

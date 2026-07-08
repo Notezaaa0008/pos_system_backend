@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"pos-system-backend/internal/models"
-	authdto "pos-system-backend/internal/module/auth/dto"
+	authDto "pos-system-backend/internal/module/auth/dto"
 	"pos-system-backend/pkg/utils"
 	"strconv"
 	"strings"
@@ -17,12 +17,12 @@ import (
 )
 
 type authServiceInterface interface {
-	RegisterSystemAdminService(req *authdto.RegisterSystemAdminRequest) error
-	RegisterUserService(req *authdto.RegisterUserRequest, userId uuid.UUID, storeID uuid.UUID) error
-	LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error)
+	RegisterSystemAdminService(req *authDto.RegisterSystemAdminRequest) error
+	RegisterUserService(req *authDto.RegisterUserRequest, userId uuid.UUID, storeID uuid.UUID) error
+	LoginService(req *authDto.LoginRequest, userAgent string) (string, string, *models.User, int64, error)
 	LogoutService(userId uuid.UUID, rawRefreshToken string, allDevices bool) error
-	ForgotPasswordService(req *authdto.ForgotPasswordRequest) error
-	ResetPasswordService(req *authdto.ResetPasswordRequest) error
+	ForgotPasswordService(req *authDto.ForgotPasswordRequest) error
+	ResetPasswordService(req *authDto.ResetPasswordRequest) error
 }
 
 type AuthController struct {
@@ -40,7 +40,7 @@ func (authCtrl *AuthController) clearAuthCookies(c *gin.Context, isProduction bo
 }
 
 func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
-	var req authdto.RegisterSystemAdminRequest
+	var req authDto.RegisterSystemAdminRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
@@ -88,7 +88,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
         return
     }
 	
-	var req authdto.RegisterUserRequest
+	var req authDto.RegisterUserRequest
 	err = c.ShouldBind(&req) // สำหรับ Form-data
     if err != nil {
 		log.Printf("[RegisterUser WARN] Validation failed for user input form-data: %v", err)
@@ -130,7 +130,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) LoginController(c *gin.Context) {
-	var req authdto.LoginRequest
+	var req authDto.LoginRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
@@ -155,7 +155,7 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 		userAgent = "Unknown Device"
 	}
 
-	accessToken, refreshToken, user, err := authCtrl.service.LoginService(&req, userAgent)
+	accessToken, refreshToken, user, storeNumber, err := authCtrl.service.LoginService(&req, userAgent)
 
 	if err != nil {
 		var appErr *utils.AppError
@@ -214,28 +214,16 @@ func (authCtrl *AuthController) LoginController(c *gin.Context) {
 	)
 
     displayName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
-
-	var storeList []gin.H
-
-	if user.SystemRole != "SYSTEM_ADMIN" {
-        for _, us := range user.UserStores {
-            storeList = append(storeList, gin.H{
-                "store_id":   us.StoreID,
-                "store_name": us.Store.StoreName,
-                "role_name":  us.Role.RoleName,
-            })
-        }
-    }
     
 	c.JSON(http.StatusOK, gin.H{
         "status":  "success",
         "message": "Login successfully",
         "user": gin.H{
-            "user_id":      user.ID,
-            "display_name": displayName,
-            "system_role":  user.SystemRole, // 👑 "SUPER_ADMIN" หรือ "USER"
-            "image":        user.ImageUrl,
-            "stores":       storeList,        // 🏪 ส่งลิสต์รายชื่อร้านค้ารวมทั้งหมดไปให้หน้าบ้าน
+            "user_id":       user.ID,
+            "display_name":  displayName,
+            "system_role":   user.SystemRole, // 👑 "SUPER_ADMIN" หรือ "USER"
+            "image":         user.ImageUrl,
+            "store_number": storeNumber,     
         },
     })
 }
@@ -294,7 +282,7 @@ func (authCtrl *AuthController) LogoutController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
-	var req authdto.ForgotPasswordRequest
+	var req authDto.ForgotPasswordRequest
 
 	// Bind JSON data เข้ากับ Struct และ Validate เบื้องต้น
 	err := c.ShouldBindJSON(&req)
@@ -338,7 +326,7 @@ func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
 }
 
 func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
-	var req authdto.ResetPasswordRequest
+	var req authDto.ResetPasswordRequest
 
 	err := c.ShouldBindJSON(&req)
 
