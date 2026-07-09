@@ -9,7 +9,8 @@ import (
 
 type Store struct {
 	ID        			uuid.UUID 			`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	StoreName			string				`gorm:"type:varchar(100);not null;"`
+	StoreCode			string				`gorm:"type:varchar(100);not null;uniqueIndex;"`
+	StoreName			string				`gorm:"type:varchar(100);not null;index"`
 	Description			*string				`gorm:"type:varchar(255);"`
 	IsActive  			bool				`gorm:"not null;default:true"`
 	CreatedAt 			time.Time 			`gorm:"not null"`

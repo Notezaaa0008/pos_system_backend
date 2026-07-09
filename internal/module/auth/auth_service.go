@@ -19,7 +19,7 @@ import (
 type authRepositoryInterface interface {
 	CheckSystemAdminExists(systemRole string) (bool, error)
 	CheckRefreshTokenValid(hashRefreshToken string) (bool, error)
-	FindUserByEmail(email string, findType string) (*models.User, error)
+	FindUserByEmail(email string, findType string) (*models.User, int64,error)
 	FindValidResetToken(token string) (*models.ResetPassword, error)
 	CreateUserSystemAdmin(user *models.User) error
 	CreateUser(userData *models.User, userStoreData *models.UserStore) error
@@ -221,28 +221,28 @@ func (service *AuthService) ValidatePermissionService(userIDStr string, storeIDS
 	return userStore, nil
 }
 
-func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, error) {
+func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent string) (string, string, *models.User, int64, error) {
 	email, isBlank := utils.IsBlank(req.Email)
-    if isBlank { return "", "", nil, utils.NewBadRequestError("email is required") }
+    if isBlank { return "", "", nil, 0, utils.NewBadRequestError("email is required") }
 
 	client, isBlank := utils.IsBlank(req.Client)
-	if isBlank { return "", "", nil, utils.NewBadRequestError("client is required") }
+	if isBlank { return "", "", nil, 0, utils.NewBadRequestError("client is required") }
 
 	password, isBlank := utils.IsBlank(req.Password)
-	if isBlank { return "", "", nil, utils.NewBadRequestError("password is required")}
+	if isBlank { return "", "", nil, 0, utils.NewBadRequestError("password is required")}
 
-	user, err := service.repo.FindUserByEmail(email, "LOGIN")
+	user, storeNumber, err := service.repo.FindUserByEmail(email, "LOGIN")
 
 	if err != nil {
 		log.Printf("[WARN] AuthService.LoginService - Login failed: User not found or account is inactive. Input Email: %s", email)
-		return "", "", nil, errors.New("invalid email or password")
+		return "", "", nil, 0, errors.New("invalid email or password")
 	}
 
 	err = utils.ComparePassword(user.Password, password)
 	
 	if err != nil {
 		log.Printf("[WARN] AuthService.LoginService - Login failed: Password mismatch for UserID: %s, Email: %s", user.ID, email)
-		return "", "", nil, errors.New("invalid email or password")
+		return "", "", nil, 0, errors.New("invalid email or password")
 	}
 	
 	timeAccessTokenStr := os.Getenv("TIME_ACC_TOKEN")
@@ -250,7 +250,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	
 	if timeAccessTokenStr == "" || timeRefreshTokenStr == "" {
 		log.Println("[CRITICAL] AuthService.LoginService - Infrastructure configuration error: TIME_ACC_TOKEN or TIME_REF_TOKEN is missing in environment variables")
-		return "", "", nil, errors.New("internal server error: security configuration missing")
+		return "", "", nil, 0, errors.New("internal server error: security configuration missing")
 	}
 
 	// แปลงจาก string เป็น int 
@@ -258,14 +258,14 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Configuration invalid: Failed to parse TIME_ACC_TOKEN value '%s' to integer: %v", timeAccessTokenStr, err)
-		return "", "", nil, errors.New("internal server error: invalid security configuration")
+		return "", "", nil, 0, errors.New("internal server error: invalid security configuration")
 	}
 
 	timeRefreshToken, err := strconv.Atoi(timeRefreshTokenStr)
 	
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Configuration invalid: Failed to parse TIME_REF_TOKEN value '%s' to integer: %v", timeRefreshTokenStr, err)
-		return "", "", nil, errors.New("internal server error: invalid security configuration")
+		return "", "", nil, 0, errors.New("internal server error: invalid security configuration")
 	}
 
 	durationTimeAccessToken := time.Minute * time.Duration(timeAccessToken)
@@ -277,14 +277,14 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Security Fault: Failed to generate Access Token for UserID: %s. Error: %v", userIDStr, err)
-		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", nil, 0, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	refreshToken, err := utils.GenerateJWT(userIDStr, user.SystemRole, durationTimeRefreshToken)
 
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Security Fault: Failed to generate Refresh Token for UserID: %s. Error: %v", userIDStr, err)
-		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", nil, 0, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	hashedToken := utils.HashToken(refreshToken)
@@ -303,10 +303,10 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Database Failure: Cannot save refresh token record for UserID: %s to DB. Error: %v", userIDStr, err)
-		return "", "", nil, fmt.Errorf("failed to persist session data: %w", err)
+		return "", "", nil, 0, fmt.Errorf("failed to persist session data: %w", err)
 	} 
 
-	return accessToken, refreshToken, user, nil
+	return accessToken, refreshToken, user, storeNumber, nil
 }
 
 func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken string, allDevices bool) error {
@@ -343,7 +343,7 @@ func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken stri
 func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordRequest) error{
 	email, isBlank := utils.IsBlank(req.Email)
     if isBlank { return utils.NewBadRequestError("email is required") }
-	user, err := service.repo.FindUserByEmail(email, "FORGOT")
+	user, _, err := service.repo.FindUserByEmail(email, "FORGOT")
 
 	if err != nil {
 		return err

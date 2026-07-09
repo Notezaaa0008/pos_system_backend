@@ -1,4 +1,4 @@
-package authdto
+package authDto
 
 import (
 	"mime/multipart"
@@ -26,7 +26,7 @@ type RegisterUserRequest struct {
 }
 
 type LoginRequest struct {
-	Email 		string 					`form:"email" binding:"required,email"`
+	Email 		string 					`json:"email" binding:"required,email"`
 	Password	string 					`json:"password" binding:"required,min=8,max=16,strong_password"`
 	Client   	string 					`json:"client" binding:"required"`
 }

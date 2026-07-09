@@ -8,7 +8,7 @@ import (
 )
 
 // gin.HandlerFunc
-func initPrefixRoutes(routesGroup *gin.RouterGroup, masterCtrl *master.MasterController, authService *auth.AuthService, authMiddleware gin.HandlerFunc) {
+func initMasterRoutes(routesGroup *gin.RouterGroup, masterCtrl *master.MasterController, authService *auth.AuthService, authMiddleware gin.HandlerFunc) {
 
 	
 	

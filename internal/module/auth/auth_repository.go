@@ -70,27 +70,27 @@ func (repo *AuthRepository) CheckRefreshTokenValid(hashedRefreshToken string) (b
 }
 
 
-func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*models.User, error) {
+func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*models.User, int64, error) {
 	if email == "" {
-		return nil, errors.New("email is required.")
+		return nil, 0,errors.New("email is required.")
 	}
 
 	var user models.User
+	var storeCount int64
+
+	err := repo.db.Where("email = ? AND is_active = ? AND deleted_at IS NULL", email, true).First(&user).Error
+		if err != nil {
+			return nil, 0, err
+		}
 
 	if(findType == "LOGIN"){
-		// ถ้าหาไม่เจอจะคืนเป็น error ถ้าใช้ First
-		err := repo.db.Preload("UserStores.Store").Preload("UserStores.Role").Where("email = ? AND is_active = ?", email, true).First(&user).Error
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := repo.db.Where("email = ? AND is_active = ?", email, true).First(&user).Error
-		if err != nil {
-			return nil, err
-		}
-	}
+    	err = repo.db.Table("user_stores").Where("user_id = ? AND is_active = ? AND deleted_at IS NULL", user.ID, true).Count(&storeCount).Error
+        if err != nil {
+            return nil, 0, err
+        }
+	} 
 
-	return &user, nil
+	return &user, storeCount, nil
 }
 
 func (repo *AuthRepository) FindValidResetToken(token string) (*models.ResetPassword, error) {
