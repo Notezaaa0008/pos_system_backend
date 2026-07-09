@@ -1,4 +1,4 @@
-package prefix
+package master
 
 import (
 	"pos-system-backend/internal/models"
@@ -6,15 +6,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type PrefixRepository struct {
+type MasterRepository struct {
 	db  *gorm.DB
 }
 
-func NewPrefixRepository(db *gorm.DB) *PrefixRepository {
-	return &PrefixRepository{db: db}
+func NewMasterRepository(db *gorm.DB) *MasterRepository {
+	return &MasterRepository{db: db}
 }
 
-func (repo *PrefixRepository) GetAllPrefix() ([]models.Prefix, error) {
+func (repo *MasterRepository) GetAllPrefix() ([]models.Prefix, error) {
 	var prefix []models.Prefix
 
 	err := repo.db.Where("is_active = ? AND deleted_at IS NULL", true).Find(&prefix).Error

@@ -1,4 +1,4 @@
-package prefixDto
+package masterDto
 
 import "github.com/google/uuid"
 

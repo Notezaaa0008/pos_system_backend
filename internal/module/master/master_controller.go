@@ -1,26 +1,26 @@
-package prefix
+package master
 
 import (
 	"net/http"
-	prefixDto "pos-system-backend/internal/module/prefix/dto"
+	masterDto "pos-system-backend/internal/module/master/dto"
 
 	"github.com/gin-gonic/gin"
 )
 
-type prefixServiceInterface interface {
-	GetAllPrefixService() ([]prefixDto.GetAllPrefixResponse, error)
+type masterServiceInterface interface {
+	GetAllPrefixService() ([]masterDto.GetAllPrefixResponse, error)
 }
 
-type PrefixController struct {
-	service prefixServiceInterface
+type MasterController struct {
+	service masterServiceInterface
 }
 
-func NewPrefixController(service prefixServiceInterface) *PrefixController {
-	return &PrefixController{service: service}
+func NewMasterController(service masterServiceInterface) *MasterController {
+	return &MasterController{service: service}
 }
 
-func (prefixCtrl *PrefixController) GetAllPrefixController(c *gin.Context) {
-	perfixs, err := prefixCtrl.service.GetAllPrefixService()
+func (MasterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
+	perfixs, err := MasterCtrl.service.GetAllPrefixService()
 
 	if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
