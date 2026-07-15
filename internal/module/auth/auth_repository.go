@@ -134,10 +134,11 @@ func (repo *AuthRepository) CreateUser(userData *models.User, userStoreData *mod
         return tx.Error
     }
 
+	defer tx.Rollback()
+
 	err := tx.Create(userData).Error
 	if  err != nil {
 		log.Printf("[Repository CreateUser DATABASE ERROR] Step 1 failed -> Inserting user record (%s): %v. Rolling back...", userData.Email, err)
-        tx.Rollback() // 🚨 พังตรงนี้ให้ยกเลิกทั้งหมดทันที
         return err
     }
 
@@ -146,7 +147,6 @@ func (repo *AuthRepository) CreateUser(userData *models.User, userStoreData *mod
 	err = tx.Create(userStoreData).Error
 	if err != nil {
 		log.Printf("[Repository CreateUser DATABASE ERROR] Step 2 failed -> Inserting user_store permission for user %s (StoreID: %s, RoleID: %s): %v. Rolling back...", userData.Email, userStoreData.StoreID.String(), userStoreData.RoleID.String(), err)
-        tx.Rollback() // 🚨 หากผูกสิทธิ์พัง ให้กดยกเลิกการสร้าง User ก่อนหน้าไปด้วยเพื่อความปลอดภัย
         return err
     }
 

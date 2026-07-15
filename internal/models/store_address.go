@@ -29,7 +29,7 @@ type StoreAddress struct {
 	SubdistrictID		uuid.UUID		`gorm:"type:uuid;not null;index"`
 	Subdistrict			Subdistrict		`gorm:"foreignKey:SubdistrictID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
-	PostalCodeID		uuid.UUID		`gorm:"type:uuid;not null;index"`
-	PostalCode			PostalCode		`gorm:"foreignKey:PostalCodeID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	PostCodeID			uuid.UUID		`gorm:"type:uuid;not null;index"`
+	PostCode			PostCode		`gorm:"foreignKey:PostCodeID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
 }

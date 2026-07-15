@@ -29,7 +29,10 @@ func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles 
 		userIDStr := userID.(string)
 		systemRoleStr := systemRole.(string)
 		if systemRoleStr == "SYSTEM_ADMIN" {
-			c.Set("storeID", c.GetHeader("X-Store-ID"))
+			storeID := c.GetHeader("X-Store-ID")
+    		if storeID != "" {
+        		c.Set("storeID", storeID)
+    		}
 			c.Set("storeRole", "SYSTEM_ADMIN")
 			c.Next()
 			return
@@ -98,6 +101,7 @@ func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles 
 
 		c.Set("storeID", userStore.StoreID)
 		c.Set("storeRole", currentRole)
+		c.Set("storeRoleID", userStore.RoleID)
 		c.Next()
 	}
 

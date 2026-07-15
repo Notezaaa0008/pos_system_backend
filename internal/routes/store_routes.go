@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"pos-system-backend/internal/middleware"
 	"pos-system-backend/internal/module/auth"
 	"pos-system-backend/internal/module/store"
 
@@ -9,11 +10,16 @@ import (
 
 func initStoreRoutes(routesGroup *gin.RouterGroup, StoreCtrl *store.StoreController, authService *auth.AuthService, authMiddleware gin.HandlerFunc) {
 
-	store := routesGroup.Group("/prefix")
+	store := routesGroup.Group("/store")
 	{
-		protectedPrefix := store.Group("/")
-		protectedPrefix.Use(authMiddleware)
-		store.GET("/store", StoreCtrl.GetUserStoreController)
+		protectedStore := store.Group("/")
+		protectedStore.Use(authMiddleware)
+		{
+			protectedStore.GET("/all-store", StoreCtrl.GetStoreListController)
+			protectedStore.POST("/create-store", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.CreateStoreController)
+			protectedStore.PUT("/update-store", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.UpdateStoreController)
+		}
+		
 
 	}
 }

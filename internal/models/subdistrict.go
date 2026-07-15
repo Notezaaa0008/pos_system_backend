@@ -23,6 +23,6 @@ type Subdistrict struct {
 	DistrictID			uuid.UUID			`gorm:"type:uuid;not null;uniqueIndex:idx_subdistrict_name_district"`
 	District			District			`gorm:"foreignKey:DistrictID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
-	PostalCodeAreas		[]PostalCodeArea	`gorm:"foreignKey:SubdistrictID"`
+	PostCodeAreas		[]PostCodeArea		`gorm:"foreignKey:SubdistrictID"`
 	StoreAddresses		[]StoreAddress		`gorm:"foreignKey:SubdistrictID"`
 }

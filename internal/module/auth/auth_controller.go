@@ -54,6 +54,8 @@ func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
 		return
 	}
 
+	
+
 	err = authCtrl.service.RegisterSystemAdminService(&req)
 
 	if err != nil {
@@ -84,7 +86,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
 	if err != nil {
         // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
 		log.Printf("[RegisterUser ERROR] Failed to get storeID from context: %v", err)
-        c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Unauthorized access"})
+        c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "missing store identity for this operation"})
         return
     }
 	

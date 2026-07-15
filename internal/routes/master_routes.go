@@ -14,9 +14,12 @@ func initMasterRoutes(routesGroup *gin.RouterGroup, masterCtrl *master.MasterCon
 	
 	master := routesGroup.Group("/master")
 	{
-		protectedPrefix := master.Group("/")
-		protectedPrefix.Use(authMiddleware)
-		master.GET("/all-prefix", masterCtrl.GetAllPrefixController)
+		protectedMaster := master.Group("/")
+		protectedMaster.Use(authMiddleware)
+		{
+			protectedMaster.GET("/all-prefix", masterCtrl.GetAllPrefixController)
+		}
+		
 		
 	}
 }

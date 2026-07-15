@@ -94,13 +94,14 @@ func (service *RolesService) UpadateRoleService(req *roledto.UpdateRoleRequest, 
 	}
 
 	trimDescription := strings.TrimSpace(req.Description)
-
+	now := time.Now()
 	roleData := models.Role{
 		ID: roleID,
 		RoleName: roleName,
 		Description: &trimDescription,
 		IsActive: *req.IsActive,
-		UpdatedAt: time.Now(),
+		UpdatedAt: &now,
+		UpdatedBy: &userID,
 	}
 	err := service.repo.UpdateRole(&roleData)
 

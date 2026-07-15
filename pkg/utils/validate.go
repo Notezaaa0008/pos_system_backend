@@ -17,6 +17,16 @@ func IsBlank(s string) (string, bool) {
 	return value, false
 }
 
+func CleanInputPhoneNumber(input string) string {
+    // 1. ตัดช่องว่าง หัว-ท้าย
+    trimmed := strings.TrimSpace(input)
+    // 2. ลบเครื่องหมายขีด (-) ออกให้หมด
+    trimmed = strings.ReplaceAll(trimmed, "-", "")
+    // 3. ลบช่องว่างที่อยู่ตรงกลางออกให้หมด
+    trimmed = strings.ReplaceAll(trimmed, " ", "")
+    return trimmed
+}
+
 func ValidateUploadFile(
 	files []*multipart.FileHeader, 
 	maxFiles int, 

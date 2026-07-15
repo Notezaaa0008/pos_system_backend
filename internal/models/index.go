@@ -15,13 +15,12 @@ func Migrate(db *gorm.DB) error {
         &Unit{},
         &Store{},
         &StoreUnit{},
-        &StorePhone{},
 
         &Province{},
         &District{},
         &Subdistrict{},
-        &PostalCode{},
-        &PostalCodeArea{},
+        &PostCode{},
+        &PostCodeArea{},
         &StoreAddress{},
 
         &ProductCategory{},
