@@ -18,6 +18,8 @@ func initStoreRoutes(routesGroup *gin.RouterGroup, StoreCtrl *store.StoreControl
 			protectedStore.GET("/all-store", StoreCtrl.GetStoreListController)
 			protectedStore.POST("/create-store", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.CreateStoreController)
 			protectedStore.PUT("/update-store", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.UpdateStoreController)
+			protectedStore.PATCH("/update-status", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.UpdateStoreStatusController)
+			protectedStore.DELETE("delete-store", middleware.PermissionMiddleware(authService, "OWNER"), StoreCtrl.DeleteStoreController)
 		}
 		
 
