@@ -16,6 +16,7 @@ type storeServiceInterface interface {
     CreateStoreService(userID uuid.UUID, rolrID uuid.UUID, systemRole string, req *storeDto.CreateStoreRequest) (error)
     UpdateStoreService(userID uuid.UUID, storeID uuid.UUID, req *storeDto.UpdateStoreRequest) error
     UpdateStoreStatusService(storeID uuid.UUID, isActive bool, userID uuid.UUID) error
+    DeleteStoreService(storeID uuid.UUID, userID uuid.UUID) error
 }
 
 type StoreController struct {
@@ -243,7 +244,6 @@ func (storeCtrl *StoreController) UpdateStoreStatusController(c *gin.Context) {
 
     storeID, err := utils.GetFromCtx(c, "storeID")
 	if err != nil {
-        // ถ้าแอดมินลืมใส่ Middleware หรือแปลงไทป์พลาด มันจะดีดออกตรงนี้เลย
 		log.Printf("[STORE][UPDATE_STORES_STATUS][CTX_ERROR] Failed to get storeID from context: %v", err)
         c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "missing store identity for this operation"})
         return
@@ -267,4 +267,39 @@ func (storeCtrl *StoreController) UpdateStoreStatusController(c *gin.Context) {
         "status":  "success",
         "message": "Store status updated successfully",
     })
+}
+
+func (storeCtrl *StoreController) DeleteStoreController(c *gin.Context) {
+    userID, err := utils.GetFromCtx(c, "userID")
+	if err != nil {
+        log.Printf("[STORE][DELETE_STORES][CTX_ERROR] Failed to get userID from context: %v", err)
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "status":  "error",
+            "message": "Unauthorized: user identity not found",
+        })
+        return
+    }
+
+    storeID, err := utils.GetFromCtx(c, "storeID")
+	if err != nil {
+		log.Printf("[STORE][DELETE_STORES][CTX_ERROR] Failed to get storeID from context: %v", err)
+        c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "missing store identity for this operation"})
+        return
+    }
+
+    err = storeCtrl.service.DeleteStoreService(storeID, userID)
+    if err != nil {
+        log.Printf("[DeleteStore Controller ERROR] Service failed to execute delete store process: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "failed to delete store and its associations",
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Store and user associations have been successfully deleted",
+    })
+
 }

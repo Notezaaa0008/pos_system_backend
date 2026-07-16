@@ -212,3 +212,38 @@ func (repo *StoreRepository) UpdateStoreStatus(storeID uuid.UUID, store *models.
     }
     return nil
 }
+
+func (repo *StoreRepository) DeleteStore(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error {
+    tx := repo.db.Begin()
+    if tx.Error != nil {
+        return tx.Error
+    }
+
+    defer tx.Rollback()
+
+    err := tx.Model(&models.UserStore{}).
+        Where("store_id = ?", storeID).
+        Select("IsActive", "DeletedBy").
+        Delete(userStoreData).Error
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+
+    err = tx.Model(&models.Store{}).
+        Where("id = ?", storeID).
+        Select("IsActive", "DeletedBy").
+        Delete(storeData).Error
+    if err != nil {
+       tx.Rollback()
+       return err 
+    }
+
+    err = tx.Commit().Error
+    if err != nil {
+        log.Printf("[Repository DeleteStore DATABASE ERROR] Failed to commit transaction : %v", err)
+        return err
+    }
+
+    return nil
+}

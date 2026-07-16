@@ -12,7 +12,7 @@ type Product struct {
 	ID        				uuid.UUID 			`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	ProductCode				string				`gorm:"type:varchar(255);not null;uniqueIndex:idx_product_code_unique"`
 	ProductName				string				`gorm:"type:varchar(255);not null"`
-	Description				*string				`gorm:"type:varchar(255)"`
+	Description				*string				`gorm:"type:text"`
 	Price					decimal.Decimal		`gorm:"type:numeric(12,2);not null"`
 	StockQuantity			decimal.Decimal		`gorm:"type:numeric(12,2);default:0"`
 	ProductAvailable		bool				`gorm:"not null;default:true"`

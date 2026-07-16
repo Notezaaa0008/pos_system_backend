@@ -10,7 +10,7 @@ import (
 type ProductCategory struct {
 	ID        				uuid.UUID 				`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	CategoryName			string					`gorm:"type:varchar(100);not null;uniqueIndex:idx_category_name"`
-	Description 			*string					`gorm:"type:varchar(255)"`
+	Description 			*string					`gorm:"type:text"`
 	IsActive  				bool					`gorm:"not null;default:true"`
 	CreatedAt 				time.Time 				`gorm:"not null"`
 	CreatedBy				uuid.UUID				`gorm:"type:uuid;not null"`

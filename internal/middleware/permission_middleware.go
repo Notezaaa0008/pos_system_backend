@@ -48,7 +48,6 @@ func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles 
 		userStore, err := authService.ValidatePermissionService(userIDStr, storeIDStr)
 
 		if err != nil {
-			// 🔍 เคสที่ 1: เป็น AppError ที่เราเขียนดัก IsBlank ไว้ในชั้น Service (เช่น ส่งไอดีว่างมาแฮก)
 			var appErr *utils.AppError
 			if errors.As(err, &appErr) {
 				c.JSON(appErr.StatusCode, gin.H{
@@ -59,7 +58,7 @@ func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles 
 				return
 			}
 
-			// 🔍 เคสที่ 2: หาข้อมูลสิทธิ์ในตารางกลางไม่เจอ (แปลว่าไม่มีสิทธิ์ในร้านนี้)
+			// หาข้อมูลสิทธิ์ในตารางกลางไม่เจอ (แปลว่าไม่มีสิทธิ์ในร้านนี้)
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				log.Printf("[RBAC WARN] Access Denied - UserID: %s has no permission for StoreID: %s", userIDStr, storeIDStr)
 				c.JSON(http.StatusForbidden, gin.H{

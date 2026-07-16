@@ -16,6 +16,7 @@ type storeRepositoryInterface interface {
     CreateStore(storeData *models.Store, isBindOwner bool, userID uuid.UUID, ownerRoleID uuid.UUID) error
     UpdateStore(store *models.Store, storeAddress *models.StoreAddress, storeID uuid.UUID) error
     UpdateStoreStatus(storeID uuid.UUID, store *models.Store) error
+    DeleteStore(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error
 }
 
 type StoreService struct {
@@ -46,7 +47,7 @@ func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole st
 	// []gin.H คือ map[string]interface
 	var result []gin.H
 
-	// 3. จัดการแปลงข้อมูล (Type Assertion) เพื่อพ่น JSON รูปแบบเดียวกันออกไป
+	// จัดการแปลงข้อมูล (Type Assertion) เพื่อพ่น JSON รูปแบบเดียวกันออกไป
     if systemRole == "SYSTEM_ADMIN" || isOwner {
         // แตกข้อมูลจากกรณีดึงตาราง Store ตรงๆ
         stores := rawData.([]models.Store)
@@ -163,5 +164,27 @@ func (service *StoreService) UpdateStoreStatusService(storeID uuid.UUID, isActiv
         return err
     }
     
+    return nil
+}
+
+func (service *StoreService) DeleteStoreService(storeID uuid.UUID, userID uuid.UUID) error {
+    // 🎯 1. ปั้นข้อมูลสำหรับอัปเดตตาราง Store
+    storeData := models.Store{
+        IsActive:  false,
+        DeletedBy: &userID,
+    }
+
+    // 🎯 2. ปั้นข้อมูลสำหรับอัปเดตตาราง UserStore
+    userStoreData := models.UserStore{
+        IsActive:  false,
+        DeletedBy: &userID,
+    }
+
+    err := service.repo.DeleteStore(storeID, &storeData, &userStoreData)
+    if err != nil {
+        log.Printf("[Service DeleteStoreService ERROR] Failed to delete store: %v", err)
+        return err
+    }
+
     return nil
 }

@@ -10,7 +10,7 @@ import (
 type Role struct {
 	ID        		uuid.UUID 		`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	RoleName  		string			`gorm:"type:varchar(50);unique;not null;index"`
-	Description		*string			`gorm:"type:varchar(255)"`
+	Description		*string			`gorm:"type:text"`
 	IsActive  		bool			`gorm:"not null;default:true"`
 	CreatedAt  		time.Time 		`gorm:"not null"`
 	CreatedBy		uuid.UUID		`gorm:"type:uuid;not null"`
