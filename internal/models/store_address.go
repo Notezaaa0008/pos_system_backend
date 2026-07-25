@@ -9,12 +9,13 @@ import (
 
 type StoreAddress struct {
 	ID        			uuid.UUID 		`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	Address				string			`gorm:"type:text"`
 	IsActive  			bool			`gorm:"not null;default:true"`
 	CreatedAt 			time.Time 		`gorm:"not null"`
 	CreatedBy			uuid.UUID		`gorm:"type:uuid; not null"`
 	UpdatedAt 			*time.Time		`gorm:"autoUpdateTime:false;default:null"`
 	UpdatedBy			*uuid.UUID		`gorm:"type:uuid"`
-	DeletedAt 			*gorm.DeletedAt	`gorm:"index"`	
+	DeletedAt 			gorm.DeletedAt	`gorm:"index"`	
 	DeletedBy			*uuid.UUID		`gorm:"type:uuid"`
 
 	StoreID				uuid.UUID		`gorm:"type:uuid;not null;uniqueIndex:idx_store_address_store_id"`
@@ -29,7 +30,7 @@ type StoreAddress struct {
 	SubdistrictID		uuid.UUID		`gorm:"type:uuid;not null;index"`
 	Subdistrict			Subdistrict		`gorm:"foreignKey:SubdistrictID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
-	PostCodeID			uuid.UUID		`gorm:"type:uuid;not null;index"`
-	PostCode			PostCode		`gorm:"foreignKey:PostCodeID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
+	PostcodeID			uuid.UUID		`gorm:"type:uuid;not null;index"`
+	Postcode			Postcode		`gorm:"foreignKey:PostcodeID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT;"`
 
 }

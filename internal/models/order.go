@@ -19,7 +19,7 @@ type Order struct {
 	CreatedBy				uuid.UUID			`gorm:"type:uuid;not null;index"`
 	UpdatedAt 				*time.Time			`gorm:"autoUpdateTime:false;default:null"`
 	UpdatedBy				*uuid.UUID			`gorm:"type:uuid"`
-	DeletedAt 				*gorm.DeletedAt		`gorm:"index"`	
+	DeletedAt 				gorm.DeletedAt		`gorm:"index"`	
 	DeletedBy				*uuid.UUID			`gorm:"type:uuid"`
 
 	OrderStatusID			uuid.UUID			`gorm:"type:uuid;not null;index"`

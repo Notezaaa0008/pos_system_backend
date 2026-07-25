@@ -49,11 +49,11 @@ func (repo *StoreRepository) GetUserStoresList(userID uuid.UUID, systemRole stri
         var stores []models.Store
         var total int64
 
-        query := repo.db.Model(&models.Store{}).Where("deleted_at IS NULL")
+        query := repo.db.Model(&models.Store{})
 
         if data.Search != "" {
             searchPattern := fmt.Sprintf("%%%s%%", data.Search)
-            query = query.Where("store_code LIKE ? OR store_name LIKE ?", searchPattern, searchPattern)
+            query = query.Where("(store_code LIKE ? OR store_name LIKE ?)", searchPattern, searchPattern)
         }
 
         if err := query.Count(&total).Error; err != nil {
@@ -84,7 +84,7 @@ func (repo *StoreRepository) GetUserStoresList(userID uuid.UUID, systemRole stri
 
     if data.Search != "" {
         searchPattern := fmt.Sprintf("%%%s%%", data.Search)
-        query = query.Where("stores.store_code LIKE ? OR stores.store_name LIKE ?", searchPattern, searchPattern)
+        query = query.Where("(stores.store_code LIKE ? OR stores.store_name LIKE ?)", searchPattern, searchPattern)
     }
 
     if err := query.Count(&total).Error; err != nil {

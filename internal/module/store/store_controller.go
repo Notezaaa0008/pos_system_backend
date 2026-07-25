@@ -12,7 +12,7 @@ import (
 )
 
 type storeServiceInterface interface {
-	GetStoreListService(userID uuid.UUID, systemRole string, req *storeDto.GetStoreRequest) ([]gin.H, int64, error)
+	GetStoreListService(userID uuid.UUID, systemRole string, req *storeDto.GetStoreRequest) ([]storeDto.GetStoreListResponse, int64, error)
     CreateStoreService(userID uuid.UUID, rolrID uuid.UUID, systemRole string, req *storeDto.CreateStoreRequest) (error)
     UpdateStoreService(userID uuid.UUID, storeID uuid.UUID, req *storeDto.UpdateStoreRequest) error
     UpdateStoreStatusService(storeID uuid.UUID, isActive bool, userID uuid.UUID) error

@@ -19,6 +19,6 @@ type LogSendEmail struct {
 	CreatedBy				uuid.UUID			`gorm:"type:uuid;not null"`
 	UpdatedAt 				*time.Time			`gorm:"autoUpdateTime:false;default:null"`
 	UpdatedBy				*uuid.UUID			`gorm:"type:uuid"`
-	DeletedAt 				*gorm.DeletedAt		`gorm:"index"`	
+	DeletedAt 				gorm.DeletedAt		`gorm:"index"`	
 	DeletedBy				*uuid.UUID			`gorm:"type:uuid"`
 }

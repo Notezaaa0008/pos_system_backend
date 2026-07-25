@@ -21,7 +21,7 @@ type Store struct {
 	CreatedBy			uuid.UUID			`gorm:"type:uuid;not null"`
 	UpdatedAt 			*time.Time			`gorm:"autoUpdateTime:false;default:null"`
 	UpdatedBy			*uuid.UUID			`gorm:"type:uuid"`
-	DeletedAt 			*gorm.DeletedAt		`gorm:"uniqueIndex:idx_primary_phone_deleted_at;uniqueIndex:idx_store_name_deleted_at"`	
+	DeletedAt 			gorm.DeletedAt		`gorm:"uniqueIndex:idx_primary_phone_deleted_at;uniqueIndex:idx_store_name_deleted_at"`	
 	DeletedBy			*uuid.UUID			`gorm:"type:uuid"`
 
 	Products 			[]Product			`gorm:"foreignKey:StoreID"`

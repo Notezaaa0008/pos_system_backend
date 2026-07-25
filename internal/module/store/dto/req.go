@@ -18,7 +18,8 @@ type CreateStoreRequest struct {
 	ProvinceID			uuid.UUID		`json:"province_id" binding:"required"`
 	DistrictID			uuid.UUID		`json:"district_id" binding:"required"`
 	SubdistrictID		uuid.UUID		`json:"subdistrict_id" binding:"required"`
-	PostCodeID			uuid.UUID		`json:"post_code_id" binding:"required"`
+	PostcodeID			uuid.UUID		`json:"postcode_id" binding:"required"`
+	Address				string			`json:"address" binding:"required"`
 }
 
 type UpdateStoreRequest struct {
@@ -31,7 +32,8 @@ type UpdateStoreRequest struct {
 	ProvinceID			uuid.UUID		`json:"province_id" binding:"required"`
 	DistrictID			uuid.UUID		`json:"district_id" binding:"required"`
 	SubdistrictID		uuid.UUID		`json:"subdistrict_id" binding:"required"`
-	PostCodeID			uuid.UUID		`json:"post_code_id" binding:"required"`
+	PostcodeID			uuid.UUID		`json:"postcode_id" binding:"required"`
+	Address				string			`json:"address" binding:"required"`
 }
 
 type UpdateStorestatus struct {

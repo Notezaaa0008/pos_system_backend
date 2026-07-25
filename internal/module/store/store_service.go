@@ -6,7 +6,6 @@ import (
 	storeDto "pos-system-backend/internal/module/store/dto"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -27,7 +26,7 @@ func NewStoreService(repo storeRepositoryInterface) *StoreService {
 	return &StoreService{repo: repo}
 }
 
-func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole string, req *storeDto.GetStoreRequest) ([]gin.H, int64, error){
+func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole string, req *storeDto.GetStoreRequest) ([]storeDto.GetStoreListResponse, int64, error){
 	//เช็คสิทธิ์ก่อนว่าผู้ใช้คนนี้เป็น OWNER ไหม
     isOwner := false
     if systemRole == "USER" {
@@ -45,7 +44,7 @@ func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole st
     }
 
 	// []gin.H คือ map[string]interface
-	var result []gin.H
+	result := []storeDto.GetStoreListResponse{}
 
 	// จัดการแปลงข้อมูล (Type Assertion) เพื่อพ่น JSON รูปแบบเดียวกันออกไป
     if systemRole == "SYSTEM_ADMIN" || isOwner {
@@ -57,23 +56,27 @@ func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole st
                 roleName = "SYSTEM_ADMIN"
             }
             
-            result = append(result, gin.H{
-                "store_id":   s.ID,
-                "store_code": s.StoreCode,
-                "store_name": s.StoreName,
-                "role_name":  roleName, // บังคับสิทธิ์ให้แสดงเป็น OWNER หรือ ADMIN บนหน้าจอไปเลย
-            })
+            formatted := storeDto.GetStoreListResponse{
+                ID: s.ID,
+                StoreCode: s.StoreCode,
+                StoreName: s.StoreName,
+                RoleName: roleName,
+            }
+
+            result = append(result, formatted)
         }
     } else {
         // แตกข้อมูลจากกรณีพนักงานทั่วไป (ตาราง UserStore)
         userStores := rawData.([]models.UserStore)
         for _, us := range userStores {
-            result = append(result, gin.H{
-                "store_id":   us.StoreID,
-                "store_code": us.Store.StoreCode,
-                "store_name": us.Store.StoreName,
-                "role_name":  us.Role.RoleName,
-            })
+            formatted := storeDto.GetStoreListResponse{
+                ID: us.StoreID,
+                StoreCode: us.Store.StoreCode,
+                StoreName: us.Store.StoreName,
+                RoleName: us.Role.RoleName,
+            }
+
+            result = append(result, formatted)
         }
     }
 
@@ -90,10 +93,11 @@ func (service *StoreService) CreateStoreService(userID uuid.UUID, rolrID uuid.UU
 
     // ปั้นข้อมูลที่อยู่ (models.StoreAddress)
     address := models.StoreAddress{
+        Address:       req.Address,  
         ProvinceID:    req.ProvinceID,
         DistrictID:    req.DistrictID,
         SubdistrictID: req.SubdistrictID,
-        PostCodeID:    req.PostCodeID,
+        PostcodeID:    req.PostcodeID,
         IsActive:      true,
         CreatedBy:     userID,
     }
@@ -133,10 +137,11 @@ func (service *StoreService) UpdateStoreService(userID uuid.UUID, storeID uuid.U
     }
 
     updateStoreAddress := models.StoreAddress{
+        Address:        req.Address,
         ProvinceID:     req.ProvinceID,
         DistrictID:     req.DistrictID,
         SubdistrictID:  req.SubdistrictID,
-        PostCodeID:     req.PostCodeID,
+        PostcodeID:     req.PostcodeID,
         UpdatedAt:      &now,
         UpdatedBy:      &userID,
     }

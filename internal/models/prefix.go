@@ -17,7 +17,7 @@ type Prefix struct {
 	CreatedBy			uuid.UUID		`gorm:"type:uuid; not null;default:'00000000-0000-0000-0000-000000000000'"`
 	UpdatedAt 			*time.Time		`gorm:"autoUpdateTime:false;default:null"`
 	UpdatedBy			*uuid.UUID		`gorm:"type:uuid;"`
-	DeletedAt 			*gorm.DeletedAt	`gorm:"index"`	
+	DeletedAt 			gorm.DeletedAt	`gorm:"index"`	
 	DeletedBy			*uuid.UUID		`gorm:"type:uuid;"`
 
 	Users	  			[]User    		`gorm:"foreignKey:PrefixID"`

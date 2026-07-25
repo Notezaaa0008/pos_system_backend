@@ -19,8 +19,8 @@ func Migrate(db *gorm.DB) error {
         &Province{},
         &District{},
         &Subdistrict{},
-        &PostCode{},
-        &PostCodeArea{},
+        &Postcode{},
+        &PostcodeArea{},
         &StoreAddress{},
 
         &ProductCategory{},

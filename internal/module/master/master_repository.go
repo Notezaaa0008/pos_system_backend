@@ -1,7 +1,10 @@
 package master
 
 import (
+	"fmt"
 	"pos-system-backend/internal/models"
+	masterDto "pos-system-backend/internal/module/master/dto"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -14,14 +17,124 @@ func NewMasterRepository(db *gorm.DB) *MasterRepository {
 	return &MasterRepository{db: db}
 }
 
-func (repo *MasterRepository) GetAllPrefix() ([]models.Prefix, error) {
+func (repo *MasterRepository) GetAllPrefix(req *masterDto.GetAllPrefixRequest) ([]models.Prefix, error) {
 	var prefix []models.Prefix
 
-	err := repo.db.Where("is_active = ? AND deleted_at IS NULL", true).Find(&prefix).Error
+	// ไม่ใส่ delete IS NULL เพราะ Gorm แอยใส่ให้
+	query := repo.db.Model(&models.Prefix{}).Where("is_active = ?", true)
 
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("(title_name LIKE ?)", searchPattern)
+	}
+
+	err := query.Limit(20).Find(&prefix).Error
 	if err != nil {
 		return nil, err
 	}
 
 	return prefix, nil
+}
+
+func (repo *MasterRepository) GetAllUnit(req *masterDto.GetAllUnitRequest) ([]models.Unit, error) {
+	var unit []models.Unit
+
+	query := repo.db.Model(&models.Unit{}).Where("is_active = ?", true)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("(unit_name LIKE ? OR unit_code LIKE ?)", searchPattern, searchPattern)
+	}
+
+	err := query.Limit(20).Find(&unit).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return unit, nil
+}
+
+func (repo *MasterRepository) GetAllProvince(req *masterDto.GetAllProviceRequest) ([]models.Province, error){
+	var province []models.Province
+
+	query := repo.db.Model(&models.Province{}).Where("is_active = ?", true)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("province_name LIKE ?", searchPattern)
+	}
+
+	err := query.Limit(20).Find(&province).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return province, nil
+}
+
+func (repo *MasterRepository) GetAllDistrict(req *masterDto.GetAllDistrictRequest) ([]models.District, error){
+	var district []models.District
+
+	query := repo.db.Model(&models.District{}).Where("is_active = ? AND province_id", true, req.Province_ID)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("district_name LIKE ?", searchPattern)
+	}
+
+	err := query.Limit(10).Find(&district).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return district, nil
+}
+
+func (repo *MasterRepository) GetAllSubdistrict(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error){
+	var subdistrict []models.Subdistrict
+
+	query := repo.db.Model(&models.Subdistrict{}).Where("is_active = ? AND district_id = ?", true, req.District_ID)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("subdistrict_name LIKE ?", searchPattern)
+	}
+
+	err := query.Limit(10).Find(&subdistrict).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return subdistrict, nil
+}
+
+func (repo *MasterRepository) GetAllPostcode(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error){
+	var postcodes []models.Postcode
+
+	query := repo.db.Model(&models.Postcode{}).
+			 Joins("JOIN postcode_areas ON postcode_areas.postcode_id = postcodes.id AND postcode_areas.deleted_at IS NULL").
+			 Where("postcode_areas.subdistrict_id = ?", req.Subdistrict_id).
+			 Where("postcodes.is_active = ?", true)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("postcodes.postcode LIKE ?", searchPattern)
+	}
+
+	err := query.Distinct("postcodes.*").
+        Order("postcodes.postcode ASC").
+        Limit(10).
+        Find(&postcodes).Error
+
+    if err != nil {
+        return nil, err
+    }
+
+    return postcodes, nil
 }
