@@ -12,6 +12,7 @@ type masterRepositoryInterface interface {
 	GetAllDistrict(req *masterDto.GetAllDistrictRequest) ([]models.District, error)
 	GetAllSubdistrict(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error)
 	GetAllPostcode(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error)
+	GetAllRole(req *masterDto.GetAllRoleRequest) ([]models.Role, error)
 }
 
 type MasterService struct {
@@ -138,4 +139,23 @@ func (service *MasterService) GetAllPostcodeService(req *masterDto.GetAllPostcod
 
 	return responsePostcode, nil
 
+}
+
+func (service *MasterService) GetAllRoleService(req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error){
+	role, err := service.repo.GetAllRole(req)
+	if err != nil {
+		return nil, err
+	}
+
+	responseRole := []masterDto.GetAllRoleResponse{}
+
+	for _, value := range role {
+		formatted := masterDto.GetAllRoleResponse{
+			ID: value.ID,
+			RoleName: value.RoleName,
+		}
+		responseRole = append(responseRole, formatted)
+	}
+
+	return responseRole, nil
 }

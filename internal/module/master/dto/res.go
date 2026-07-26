@@ -31,3 +31,8 @@ type GetAllPostcodeResponse struct {
 	ID			uuid.UUID	`json:"id"`
 	Postcode    string		`json:"postcode"`
 }
+
+type GetAllRoleResponse struct {
+	ID			uuid.UUID	`json:"id"`
+	RoleName	string		`json:"role_name"`
+}

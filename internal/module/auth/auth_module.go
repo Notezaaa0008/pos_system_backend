@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"pos-system-backend/internal/module/roles"
-
 	"gorm.io/gorm"
 )
 
@@ -13,11 +11,9 @@ type Module struct {
 }
 
 
-func InitModule(db *gorm.DB, roleModule *roles.Module) *Module {
+func InitModule(db *gorm.DB) *Module {
     repo := NewAuthRepository(db)
-    
-    // ดึงเฉพาะตัว Service ของ Role ออกมาจากกระเป๋าเพื่อเอามาต่อสายไฟ 🔌
-    service := NewAuthService(repo, roleModule.Service) 
+    service := NewAuthService(repo) 
     controller := NewAuthController(service)
     
     return &Module{

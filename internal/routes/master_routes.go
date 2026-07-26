@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"pos-system-backend/internal/middleware"
 	"pos-system-backend/internal/module/auth"
 	"pos-system-backend/internal/module/master"
 
@@ -18,6 +19,12 @@ func initMasterRoutes(routesGroup *gin.RouterGroup, masterCtrl *master.MasterCon
 		protectedMaster.Use(authMiddleware)
 		{
 			protectedMaster.GET("/all-prefix", masterCtrl.GetAllPrefixController)
+			protectedMaster.GET("/all-unit", masterCtrl.GetAllUnitController)
+			protectedMaster.GET("/all-province", masterCtrl.GetAllProvinceController)
+			protectedMaster.GET("/all-district", masterCtrl.GetAllDistrictController)
+			protectedMaster.GET("/all-subdistrict", masterCtrl.GetAllSubdistrictController)
+			protectedMaster.GET("/all-postcode", masterCtrl.GetAllPostcodeController)
+			protectedMaster.GET("/all-role", middleware.PermissionMiddleware(authService, "OWNER", "MANAGER"), masterCtrl.GetAllRoleController)
 		}
 		
 		

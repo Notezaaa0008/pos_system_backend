@@ -15,6 +15,7 @@ type masterServiceInterface interface {
     GetAllDistrictService(req *masterDto.GetAllDistrictRequest) ([]masterDto.GetAllDistrictResponse, error)
     GetAllSubdistrictService(req *masterDto.GetAllSubdistrictRequest) ([]masterDto.GetAllSubdistrictResponse, error)
     GetAllPostcodeService(req *masterDto.GetAllPostcodeRequest) ([]masterDto.GetAllPostcodeResponse, error)
+    GetAllRoleService(req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error)
 }
 
 type MasterController struct {
@@ -25,7 +26,7 @@ func NewMasterController(service masterServiceInterface) *MasterController {
 	return &MasterController{service: service}
 }
 
-func (MasterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
     var req masterDto.GetAllPrefixRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -37,7 +38,7 @@ func (MasterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
         return
 	}
 
-	perfixs, err := MasterCtrl.service.GetAllPrefixService(&req)
+	perfixs, err := masterCtrl.service.GetAllPrefixService(&req)
 
 	if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -55,7 +56,7 @@ func (MasterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
     })
 }
 
-func (MasterCtrl *MasterController) GetAllUnitController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllUnitController(c *gin.Context) {
     var req masterDto.GetAllUnitRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -67,7 +68,7 @@ func (MasterCtrl *MasterController) GetAllUnitController(c *gin.Context) {
         return
 	}
 
-    units, err := MasterCtrl.service.GetAllUnitService(&req)
+    units, err := masterCtrl.service.GetAllUnitService(&req)
 
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -85,7 +86,7 @@ func (MasterCtrl *MasterController) GetAllUnitController(c *gin.Context) {
     })
 }
 
-func (MasterCtrl *MasterController) GetAllProvinceController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllProvinceController(c *gin.Context) {
     var req masterDto.GetAllProviceRequest
     err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -97,7 +98,7 @@ func (MasterCtrl *MasterController) GetAllProvinceController(c *gin.Context) {
         return
 	}
 
-    provinces, err := MasterCtrl.service.GetAllProvinceService(&req)
+    provinces, err := masterCtrl.service.GetAllProvinceService(&req)
 
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -115,7 +116,7 @@ func (MasterCtrl *MasterController) GetAllProvinceController(c *gin.Context) {
     })
 }
 
-func (MasterCtrl *MasterController) GetAllDistrictController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllDistrictController(c *gin.Context) {
     var req masterDto.GetAllDistrictRequest
     err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -127,7 +128,7 @@ func (MasterCtrl *MasterController) GetAllDistrictController(c *gin.Context) {
         return
 	}
 
-    districts ,err := MasterCtrl.service.GetAllDistrictService(&req)
+    districts ,err := masterCtrl.service.GetAllDistrictService(&req)
 
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -145,7 +146,7 @@ func (MasterCtrl *MasterController) GetAllDistrictController(c *gin.Context) {
     })
 }
 
-func (MasterCtrl *MasterController) GetAllSubdistrictController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllSubdistrictController(c *gin.Context) {
     var req masterDto.GetAllSubdistrictRequest
     err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -157,7 +158,7 @@ func (MasterCtrl *MasterController) GetAllSubdistrictController(c *gin.Context) 
         return
 	} 
 
-    subdistricts, err := MasterCtrl.service.GetAllSubdistrictService(&req)
+    subdistricts, err := masterCtrl.service.GetAllSubdistrictService(&req)
 
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -175,7 +176,7 @@ func (MasterCtrl *MasterController) GetAllSubdistrictController(c *gin.Context) 
     })
 }
 
-func (MasterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
+func (masterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
     var req masterDto.GetAllPostcodeRequest
     err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -187,7 +188,7 @@ func (MasterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
         return
 	} 
 
-    postecodes, err := MasterCtrl.service.GetAllPostcodeService(&req)
+    postecodes, err := masterCtrl.service.GetAllPostcodeService(&req)
 
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -202,5 +203,34 @@ func (MasterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
         "status":  "success",
         "message": "successfully retrieved active subdistricts",
         "data":  postecodes,
+    })
+}
+
+func (masterCtrl *MasterController) GetAllRoleController(c *gin.Context) {
+    var req masterDto.GetAllRoleRequest
+    err := c.ShouldBindJSON(&req)
+	if err != nil {
+		log.Printf("[STORE][GET_ROLE][INVALID_REQUEST] path=%s error=%v", c.Request.URL.Path, err)
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid request payload or missing required parameters",
+        })
+        return
+	}
+
+    roles, err := masterCtrl.service.GetAllRoleService(&req)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "failed to fetch roles data",
+            "error":   err.Error(),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "successfully retrieved active subdistricts",
+        "data":  roles,
     })
 }

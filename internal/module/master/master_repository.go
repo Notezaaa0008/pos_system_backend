@@ -34,6 +34,11 @@ func (repo *MasterRepository) GetAllPrefix(req *masterDto.GetAllPrefixRequest) (
 		return nil, err
 	}
 
+	// return ในรูปแบบ slice []models.Role เพราะ จะได้ [] ตอนไม่มีค่า และ 
+	// slice ไม่ได้เก็บข้อมูลดิบทั้งหมดเอาไว้โดยตรง แต่มันคือโครงสร้างข้อมูลขนาดเล็ก (Header) ที่ประกอบด้วย 3 อย่างนี้เท่านั้น:
+	// 1. Pointer ที่ชี้ไปยัง Array จริงๆ ในหน่วยความจำ (Underlying Array)
+	// 2. Length (ความยาวปัจจุบัน)
+	// 3. Capacity (ความจุสูงสุด)
 	return prefix, nil
 }
 
@@ -114,7 +119,7 @@ func (repo *MasterRepository) GetAllSubdistrict(req *masterDto.GetAllSubdistrict
 }
 
 func (repo *MasterRepository) GetAllPostcode(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error){
-	var postcodes []models.Postcode
+	var postcode []models.Postcode
 
 	query := repo.db.Model(&models.Postcode{}).
 			 Joins("JOIN postcode_areas ON postcode_areas.postcode_id = postcodes.id AND postcode_areas.deleted_at IS NULL").
@@ -130,11 +135,30 @@ func (repo *MasterRepository) GetAllPostcode(req *masterDto.GetAllPostcodeReques
 	err := query.Distinct("postcodes.*").
         Order("postcodes.postcode ASC").
         Limit(10).
-        Find(&postcodes).Error
+        Find(&postcode).Error
 
     if err != nil {
         return nil, err
     }
 
-    return postcodes, nil
+    return postcode, nil
+}
+
+func (repo *MasterRepository) GetAllRole(req *masterDto.GetAllRoleRequest) ([]models.Role, error){
+	var role []models.Role
+
+	query := repo.db.Model(&models.Role{}).Where("is_active = ?", true)
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query = query.Where("(role_name ILIKE ?)", searchPattern)
+	}
+
+	err := query.Limit(10).Find(&role).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return role, nil
 }

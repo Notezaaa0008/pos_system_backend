@@ -29,3 +29,7 @@ type GetAllPostcodeRequest struct {
 	Search			string		`json:"search"`
 	Subdistrict_id	uuid.UUID	`json:"subdistrict_id" binding:"required"`
 }
+
+type GetAllRoleRequest struct {
+	Search			string		`json:"search"`
+}

@@ -32,19 +32,13 @@ type authRepositoryInterface interface {
 	UpdateLogEmailStatus(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error
 }
 
-type roleServiceReader interface {
-    GetRoleIdByRoleNameService(roleName string) (uuid.UUID, error)
-}
-
 type AuthService struct {
 	repo authRepositoryInterface
-	roleService roleServiceReader
 }
 
-func NewAuthService (repo authRepositoryInterface, roleService roleServiceReader) *AuthService {
+func NewAuthService (repo authRepositoryInterface) *AuthService {
 	return &AuthService{
 		repo: repo,
-		roleService: roleService,
 	}
 }
 

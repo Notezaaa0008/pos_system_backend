@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"pos-system-backend/internal/middleware"
 	"pos-system-backend/internal/module/auth"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ func initAuthRoutes(routesGroup *gin.RouterGroup, authCtrl *auth.AuthController,
 		{
 			// middleware.permissionMiddleware(authService, "MANAGER", "CASHIER")
 			protectedAuth.POST("/logout", authCtrl.LogoutController)
+			protectedAuth.POST("/signup", middleware.PermissionMiddleware(authService, "OWNER", "MANAGER"), authCtrl.RegisterUserController)
 		}
 		
 	}
