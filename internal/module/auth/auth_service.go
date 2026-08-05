@@ -17,19 +17,19 @@ import (
 )
 
 type authRepositoryInterface interface {
-	CheckSystemAdminExists(systemRole string) (bool, error)
-	CheckRefreshTokenValid(hashRefreshToken string) (bool, error)
-	FindUserByEmail(email string, findType string) (*models.User, int64,error)
-	FindValidResetToken(token string) (*models.ResetPassword, error)
-	CreateUserSystemAdmin(user *models.User) error
-	CreateUser(userData *models.User, userStoreData *models.UserStore) error
-	CreateRefreshTokenRecord(refreshToken *models.RefreshToken) error
-	CreateLogEmail(logEmail *models.LogSendEmail) error
-	CheckPermission(userID uuid.UUID, storeID uuid.UUID) (*models.UserStore, error)
-	CreateResetPassword(reset *models.ResetPassword) error
-	RevokeRefreshToken(userID uuid.UUID, hashedToken string) error
-	UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error
-	UpdateLogEmailStatus(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error
+	CheckSystemAdminExistsRepository(systemRole string) (bool, error)
+	CheckRefreshTokenValidRepository(hashRefreshToken string) (bool, error)
+	FindUserByEmailRepository(email string, findType string) (*models.User, int64,error)
+	FindValidResetTokenRepository(token string) (*models.ResetPassword, error)
+	CreateUserSystemAdminRepository(user *models.User) error
+	CreateUserRepository(userData *models.User, userStoreData *models.UserStore) error
+	CreateRefreshTokenRecordRepository(refreshToken *models.RefreshToken) error
+	CreateLogEmailRepository(logEmail *models.LogSendEmail) error
+	CheckPermissionRepository(userID uuid.UUID, storeID uuid.UUID) (*models.UserStore, error)
+	CreateResetPasswordRepository(reset *models.ResetPassword) error
+	RevokeRefreshTokenRepository(userID uuid.UUID, hashedToken string) error
+	UpdatePasswordAndRevokeTokenRepository(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error
+	UpdateLogEmailStatusRepository(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error
 }
 
 type AuthService struct {
@@ -49,7 +49,7 @@ func (service *AuthService) RegisterSystemAdminService(req *authdto.RegisterSyst
     lastName, isBlank := utils.IsBlank(req.LastName)
     if isBlank { return utils.NewBadRequestError("Last name is required") }   
 
-	exists ,err := service.repo.CheckSystemAdminExists("SYSTEM_ADMIN")
+	exists ,err := service.repo.CheckSystemAdminExistsRepository("SYSTEM_ADMIN")
 
 	if err != nil {
 		log.Printf("[ERROR] AuthService.RegisterSystemAdminService - CheckSystemAdminExists failed: %v", err)
@@ -81,7 +81,7 @@ func (service *AuthService) RegisterSystemAdminService(req *authdto.RegisterSyst
 		CreatedBy: uuid.Nil,
 	}
 
-	err = service.repo.CreateUserSystemAdmin(&newUser)
+	err = service.repo.CreateUserSystemAdminRepository(&newUser)
 	if err != nil {
 		log.Printf("[ERROR] AuthService.RegisterSystemAdminService - CreateUser in DB failed Error: %v", err)
 		return err
@@ -95,7 +95,17 @@ func (service *AuthService) RegisterUserService(req *authdto.RegisterUserRequest
     if isBlank { return utils.NewBadRequestError("First name is required") }
 
     lastName, isBlank := utils.IsBlank(req.LastName)
-    if isBlank { return utils.NewBadRequestError("Last name is required") }   
+    if isBlank { return utils.NewBadRequestError("Last name is required") } 
+	
+	prefixUUID, err := uuid.Parse(req.PrefixID)
+    if err != nil {
+        return utils.NewBadRequestError("Invalid prefix ID format")
+    }
+
+    roleUUID, err := uuid.Parse(req.RoleID)
+    if err != nil {
+        return utils.NewBadRequestError("Invalid role ID format")
+    }
 
 	maxAllowedFiles := 1
 	maxAllowedSizeMB := int64(5)
@@ -145,18 +155,18 @@ func (service *AuthService) RegisterUserService(req *authdto.RegisterUserRequest
 		ImageOriginalName: originalName,
 		ImageUrl: imageUrl,
 		SystemRole: "USER",
-		PrefixID: req.PrefixID,
+		PrefixID: prefixUUID,
 		IsActive: true,
 		CreatedBy: userID,
 	}
 
 	userStoreData := models.UserStore{
         StoreID:  storeID, 
-        RoleID:   req.RoleID,
+        RoleID:   roleUUID,
         IsActive: true,
     }
 
-	err = service.repo.CreateUser(&userData, &userStoreData)
+	err = service.repo.CreateUserRepository(&userData, &userStoreData)
 	if err != nil {
 		log.Printf("[RegisterUser Service DATABASE ERROR] Transaction failed for user %s: %v", req.Email, err)
 		return err
@@ -171,7 +181,7 @@ func (service *AuthService) ValidateRefreshTokenService(refreshTokenStr string) 
 
 	hashedToken := utils.HashToken(refreshToken)
 
-	 isValid ,err := service.repo.CheckRefreshTokenValid(hashedToken)
+	 isValid ,err := service.repo.CheckRefreshTokenValidRepository(hashedToken)
 
 	 if err != nil {
 		return false, err 
@@ -205,7 +215,7 @@ func (service *AuthService) ValidatePermissionService(userIDStr string, storeIDS
 		return nil, utils.NewBadRequestError("invalid store id format.")
     }
 	
-	userStore ,err := service.repo.CheckPermission(userID, storeID)
+	userStore ,err := service.repo.CheckPermissionRepository(userID, storeID)
 
 	if err != nil {
 		log.Printf("[Permission Service ERROR] Permission check failed in DB for UserID: %s, StoreID: %s, Error: %v", userID.String(), storeID.String(), err)
@@ -225,7 +235,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 	password, isBlank := utils.IsBlank(req.Password)
 	if isBlank { return "", "", nil, 0, utils.NewBadRequestError("password is required")}
 
-	user, storeNumber, err := service.repo.FindUserByEmail(email, "LOGIN")
+	user, storeNumber, err := service.repo.FindUserByEmailRepository(email, "LOGIN")
 
 	if err != nil {
 		log.Printf("[WARN] AuthService.LoginService - Login failed: User not found or account is inactive. Input Email: %s", email)
@@ -293,7 +303,7 @@ func (service *AuthService) LoginService(req *authdto.LoginRequest, userAgent st
 		CreatedBy: user.ID,
 	}
 	
-	err = service.repo.CreateRefreshTokenRecord(&refreshTokenRecord)
+	err = service.repo.CreateRefreshTokenRecordRepository(&refreshTokenRecord)
 
 	if err != nil {
 		log.Printf("[ERROR] AuthService.LoginService - Database Failure: Cannot save refresh token record for UserID: %s to DB. Error: %v", userIDStr, err)
@@ -308,7 +318,7 @@ func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken stri
 	// 🚨 เคสที่ 1: สั่งลบทุกเครื่อง (ไม่สนใจ Token เครื่องปัจจุบัน)
 	if allDevices {
 		// ส่ง (userID, "") -> Repo จะไปใช้เงื่อนไขคัดเฉพาะอันที่ยังไม่หมดอายุของยูสเซอร์คนนี้
-		err := service.repo.RevokeRefreshToken(userId, "");
+		err := service.repo.RevokeRefreshTokenRepository(userId, "");
 		if err != nil {
 			log.Printf("[AUTH][LOGOUT_SERVICE][REVOKE_ALL_FAILED] userID=%s error=%v", userId, err)
 			return err
@@ -325,7 +335,7 @@ func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken stri
 	// 🔒 ทำการแฮช Token ดิบให้เป็นค่า SHA-256 อยู่ในชั้นนี้ตามกฎธุรกิจ
 	hashedToken := utils.HashToken(rawRefreshToken)
 
-	err := service.repo.RevokeRefreshToken(userId, hashedToken)
+	err := service.repo.RevokeRefreshTokenRepository(userId, hashedToken)
 	if err != nil {
 		log.Printf("[AUTH][LOGOUT_SERVICE][REVOKE_SINGLE_FAILED] userID=%s error=%v", userId, err)
 		return err
@@ -337,7 +347,7 @@ func (service *AuthService) LogoutService(userId uuid.UUID, rawRefreshToken stri
 func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordRequest) error{
 	email, isBlank := utils.IsBlank(req.Email)
     if isBlank { return utils.NewBadRequestError("email is required") }
-	user, _, err := service.repo.FindUserByEmail(email, "FORGOT")
+	user, _, err := service.repo.FindUserByEmailRepository(email, "FORGOT")
 
 	if err != nil {
 		return err
@@ -370,7 +380,7 @@ func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordReq
 		CreatedBy: user.ID,
 	}
 
-	err = service.repo.CreateResetPassword(&resetData)
+	err = service.repo.CreateResetPasswordRepository(&resetData)
 
 	if err != nil {
 		log.Printf("[ForgotPassword Service DATABASE ERROR] Failed to save token for user %s: %v", email, err)
@@ -385,7 +395,7 @@ func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordReq
         CreatedBy: user.ID, // ใช้ ID ยูสเซอร์เป็นคนสร้าง Log นี้
     }
 
-	errLog := service.repo.CreateLogEmail(&logEmail) 
+	errLog := service.repo.CreateLogEmailRepository(&logEmail) 
 	if errLog != nil {
         log.Printf("[ForgotPassword Service ERROR] Cannot create email log record for %s: %v", email, errLog)
     }
@@ -400,13 +410,13 @@ func (service *AuthService) ForgotPasswordService(req *authdto.ForgotPasswordReq
             
             // เมลพัง -> อัปเดตสเตตัสใน DB เป็น FAILED พร้อมแนบสาเหตุการแครช
             errStr := err.Error()
-            _ = service.repo.UpdateLogEmailStatus(logID, "FAILED", &errStr, userID)
+            _ = service.repo.UpdateLogEmailStatusRepository(logID, "FAILED", &errStr, userID)
             return
         }
         
         //ส่งเมลสำเร็จ -> อัปเดตสเตตัสใน DB เป็น SUCCESS สวยๆ ลิงก์ทำงานได้ปกติ
         log.Printf("[ForgotPassword Background MAIL SUCCESS] Reset link successfully dispatched to %s", emailToSend)
-        _ = service.repo.UpdateLogEmailStatus(logID, "SUCCESS", nil, userID)
+        _ = service.repo.UpdateLogEmailStatusRepository(logID, "SUCCESS", nil, userID)
 
     }(logEmail.ID, user.Email, token, user.ID)
 
@@ -424,7 +434,7 @@ func (service *AuthService) ResetPasswordService(req *authdto.ResetPasswordReque
         return utils.NewBadRequestError("New password is required.") 
     }
 	// ตรวจสอบตั๋ว (Token) ว่าถูกต้อง/ไม่หมดอายุ ไหม
-	resetToken, err := service.repo.FindValidResetToken(token)
+	resetToken, err := service.repo.FindValidResetTokenRepository(token)
     if err != nil {
         if errors.Is(err, gorm.ErrRecordNotFound) {
             log.Printf("[ResetPassword Service WARN] Attempted to use invalid or expired token: '%s'", token)
@@ -442,7 +452,7 @@ func (service *AuthService) ResetPasswordService(req *authdto.ResetPasswordReque
     }
 
 	// 3. สั่งบันทึกรหัสใหม่ลง User และสั่งติ๊กใช้ตั๋วใบนี้แล้ว
-	err = service.repo.UpdatePasswordAndRevokeToken(resetToken.UserID, string(hashedPassword), resetToken.ID)
+	err = service.repo.UpdatePasswordAndRevokeTokenRepository(resetToken.UserID, string(hashedPassword), resetToken.ID)
     if err != nil {
         log.Printf("[ResetPassword Service DATABASE ERROR] Transaction execution failed for UserID %s: %v", resetToken.UserID.String(), err)
         return err

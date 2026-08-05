@@ -76,6 +76,9 @@ func (storeCtrl *StoreController) GetStoreListController(c *gin.Context) {
 		"page":    req.Page,  
 		"limit":   req.Limit, 
 	})
+}
+
+func (storeCtrl *StoreController) GetStoreController(c *gin.Context) {
 
 }
 
@@ -122,7 +125,6 @@ func (storeCtrl *StoreController) CreateStoreController(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{
             "status":  "error",
             "message": "invalid request body format",
-            "error":   err.Error(),
         })
         return
     }
@@ -213,7 +215,6 @@ func (storeCtrl *StoreController) UpdateStoreController(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{
             "status":  "error",
             "message": "invalid request body format",
-            "error":   err.Error(),
         })
         return
     }

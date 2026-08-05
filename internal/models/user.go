@@ -11,7 +11,7 @@ type User struct {
 	ID        			uuid.UUID 		`gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	FirstName 			string			`gorm:"type:varchar(100);not null"`
 	LastName  			string			`gorm:"type:varchar(100);not null"`
-	Email     			string    		`gorm:"type:varchar(100);not null;uniqueIndex:idx_user_email_unique"`
+	Email     			string    		`gorm:"type:varchar(100);not null;uniqueIndex:idx_user_email_active,where:deleted_at IS NULL"`
 	Password  			string    		`gorm:"type:varchar(255);not null"`
 	ImageName			*string			`gorm:"type:varchar(255)"`
 	ImageOriginalName	*string			`gorm:"type:varchar(255)"`

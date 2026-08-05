@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
 )
 
@@ -49,19 +50,16 @@ func (authCtrl *AuthController) RegisterSystemAdminController(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": "invalid request body format",
-			"error":   err.Error(),
 		})
 		return
 	}
-
-	
 
 	err = authCtrl.service.RegisterSystemAdminService(&req)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
-			"message": err.Error(),
+			"message": "Internal server error. Something went wrong.",
 		})
 		return
 	}
@@ -91,13 +89,12 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
     }
 	
 	var req authDto.RegisterUserRequest
-	err = c.ShouldBind(&req) // สำหรับ Form-data
+	err = c.ShouldBindWith(&req, binding.FormMultipart) // สำหรับ Form-data
     if err != nil {
 		log.Printf("[RegisterUser WARN] Validation failed for user input form-data: %v", err)
         c.JSON(http.StatusBadRequest, gin.H{
             "status":  "error",
             "message": "invalid request body format",
-            "error":   err.Error(),
         })
         return
     }
@@ -294,7 +291,6 @@ func (authCtrl *AuthController) ForgotPasswordController(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": "invalid request body format",
-			"error":   err.Error(),
 		})
 		return
 	}
@@ -337,7 +333,6 @@ func (authCtrl *AuthController) ResetPasswordController(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": "invalid request body format",
-			"error":   err.Error(),
 		})
 		return
 	}

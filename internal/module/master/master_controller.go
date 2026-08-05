@@ -4,8 +4,10 @@ import (
 	"log"
 	"net/http"
 	masterDto "pos-system-backend/internal/module/master/dto"
+	"pos-system-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type masterServiceInterface interface {
@@ -15,7 +17,7 @@ type masterServiceInterface interface {
     GetAllDistrictService(req *masterDto.GetAllDistrictRequest) ([]masterDto.GetAllDistrictResponse, error)
     GetAllSubdistrictService(req *masterDto.GetAllSubdistrictRequest) ([]masterDto.GetAllSubdistrictResponse, error)
     GetAllPostcodeService(req *masterDto.GetAllPostcodeRequest) ([]masterDto.GetAllPostcodeResponse, error)
-    GetAllRoleService(req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error)
+    GetAllRoleService(userID uuid.UUID, systemRole string, req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error)
 }
 
 type MasterController struct {
@@ -44,7 +46,7 @@ func (masterCtrl *MasterController) GetAllPrefixController(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch roles data",
-            "error":   err.Error(), // ถ้าขึ้น Production อาจจะซ่อนไว้เพื่อความปลอดภัย
+            // ถ้าขึ้น Production อาจจะซ่อนไว้เพื่อความปลอดภัย
         })
         return
     }
@@ -74,7 +76,6 @@ func (masterCtrl *MasterController) GetAllUnitController(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch units data",
-            "error":   err.Error(),
         })
         return
     }
@@ -104,7 +105,6 @@ func (masterCtrl *MasterController) GetAllProvinceController(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch provinces data",
-            "error":   err.Error(),
         })
         return
     }
@@ -134,7 +134,6 @@ func (masterCtrl *MasterController) GetAllDistrictController(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch districts data",
-            "error":   err.Error(),
         })
         return
     }
@@ -164,7 +163,6 @@ func (masterCtrl *MasterController) GetAllSubdistrictController(c *gin.Context) 
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch subdistricts data",
-            "error":   err.Error(),
         })
         return
     }
@@ -194,7 +192,6 @@ func (masterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch postcodes data",
-            "error":   err.Error(),
         })
         return
     }
@@ -207,8 +204,27 @@ func (masterCtrl *MasterController) GetAllPostcodeController(c *gin.Context) {
 }
 
 func (masterCtrl *MasterController) GetAllRoleController(c *gin.Context) {
+    userID, err := utils.GetFromCtx(c, "userID")
+	if err != nil {
+		log.Printf("[Get All Role ERROR] systemRole missing or empty in contex.")
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "status": "error", 
+            "message": "Unauthorized: user identity not found",
+        })
+        return
+    }
+
+    systemRole := c.GetString("systemRole")
+	if systemRole == "" {
+        log.Printf("[Get All Role ERROR] systemRole missing or empty in context")
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "status":  "error",
+            "message": "Unauthorized: system role not found",
+        })
+        return
+    }
     var req masterDto.GetAllRoleRequest
-    err := c.ShouldBindJSON(&req)
+    err = c.ShouldBindJSON(&req)
 	if err != nil {
 		log.Printf("[STORE][GET_ROLE][INVALID_REQUEST] path=%s error=%v", c.Request.URL.Path, err)
         c.JSON(http.StatusBadRequest, gin.H{
@@ -218,12 +234,11 @@ func (masterCtrl *MasterController) GetAllRoleController(c *gin.Context) {
         return
 	}
 
-    roles, err := masterCtrl.service.GetAllRoleService(&req)
+    roles, err := masterCtrl.service.GetAllRoleService(userID, systemRole, &req)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
             "status":  "error",
             "message": "failed to fetch roles data",
-            "error":   err.Error(),
         })
         return
     }

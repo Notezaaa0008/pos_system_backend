@@ -69,7 +69,7 @@ func PermissionMiddleware(authService MiddlewarePermissionService, allowedRoles 
 				return
 			}
 
-			// 🔍 เคสที่ 3: Database พัง หรือเกิดระบบขัดข้องที่คาดไม่ถึง
+			// Database พัง หรือเกิดระบบขัดข้องที่คาดไม่ถึง
 			log.Printf("[RBAC ERROR] Unexpected error during permission validation: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  "error",

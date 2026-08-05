@@ -19,8 +19,8 @@ type RegisterUserRequest struct {
 	LastName	string 					`form:"last_name" binding:"required"`
 	Email 		string 					`form:"email" binding:"required,email"`
 	Password 	string 					`form:"password" binding:"required,min=8,max=16,strong_password"`
-	RoleID		uuid.UUID				`form:"role_id" binding:"required"`
-	PrefixID	uuid.UUID				`form:"prefix_id" binding:"required"`
+	RoleID    	string                  `form:"role_id" binding:"required,uuid"`
+    PrefixID  	string                  `form:"prefix_id" binding:"required,uuid"`
 
 	Files 		[]*multipart.FileHeader	`form:"files"`
 }

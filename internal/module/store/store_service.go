@@ -10,12 +10,12 @@ import (
 )
 
 type storeRepositoryInterface interface {
-	CheckIsOwner(userID uuid.UUID) (bool, error)
-	GetUserStoresList(userID uuid.UUID, systemRole string, isOwner bool, data *storeDto.GetStoreRequest) (interface{}, int64, error)
-    CreateStore(storeData *models.Store, isBindOwner bool, userID uuid.UUID, ownerRoleID uuid.UUID) error
-    UpdateStore(store *models.Store, storeAddress *models.StoreAddress, storeID uuid.UUID) error
-    UpdateStoreStatus(storeID uuid.UUID, store *models.Store) error
-    DeleteStore(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error
+	CheckIsOwnerRepository(userID uuid.UUID) (bool, error)
+	GetUserStoresListRepository(userID uuid.UUID, systemRole string, isOwner bool, data *storeDto.GetStoreRequest) (interface{}, int64, error)
+    CreateStoreRepository(storeData *models.Store, isBindOwner bool, userID uuid.UUID, ownerRoleID uuid.UUID) error
+    UpdateStoreRepository(store *models.Store, storeAddress *models.StoreAddress, storeID uuid.UUID) error
+    UpdateStoreStatusRepository(storeID uuid.UUID, store *models.Store) error
+    DeleteStoreRepository(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error
 }
 
 type StoreService struct {
@@ -31,14 +31,14 @@ func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole st
     isOwner := false
     if systemRole == "USER" {
         var err error
-        isOwner, err = service.repo.CheckIsOwner(userID)
+        isOwner, err = service.repo.CheckIsOwnerRepository(userID)
         if err != nil {
             return nil, 0, err
         }
     }
 	
 	//เรียก Repository เพื่อดึงข้อมูลตามเงื่อนไขสิทธิ์
-	rawData, total, err := service.repo.GetUserStoresList(userID, systemRole, isOwner, req)
+	rawData, total, err := service.repo.GetUserStoresListRepository(userID, systemRole, isOwner, req)
     if err != nil {
         return nil, 0, err
     }
@@ -83,6 +83,10 @@ func (service *StoreService) GetStoreListService(userID uuid.UUID, systemRole st
     return result, total, nil
 }
 
+func (service *StoreService) GetStoreService() {
+    
+}
+
 func (service *StoreService) CreateStoreService(userID uuid.UUID, rolrID uuid.UUID, systemRole string, req *storeDto.CreateStoreRequest) (error) {
     isBindOwner := false
     var ownerRoleID uuid.UUID
@@ -115,7 +119,7 @@ func (service *StoreService) CreateStoreService(userID uuid.UUID, rolrID uuid.UU
         StoreAddress:   &address, // 🔥 ใส่ความสัมพันธ์ลูกลงไปตรง ๆ
     }
 
-    err := service.repo.CreateStore(&storeData, isBindOwner, userID, ownerRoleID)
+    err := service.repo.CreateStoreRepository(&storeData, isBindOwner, userID, ownerRoleID)
     if err != nil {
         return err
     }
@@ -146,7 +150,7 @@ func (service *StoreService) UpdateStoreService(userID uuid.UUID, storeID uuid.U
         UpdatedBy:      &userID,
     }
 
-    err := service.repo.UpdateStore(&updateStore, &updateStoreAddress, storeID)
+    err := service.repo.UpdateStoreRepository(&updateStore, &updateStoreAddress, storeID)
     if err != nil {
         log.Printf("[Service UpdateStoreService ERROR] Failed to update Store Error: %v", err)
         return err
@@ -163,7 +167,7 @@ func (service *StoreService) UpdateStoreStatusService(storeID uuid.UUID, isActiv
         UpdatedBy: &userID,
     }
 
-    err := service.repo.UpdateStoreStatus(storeID, &updateStore)
+    err := service.repo.UpdateStoreStatusRepository(storeID, &updateStore)
     if err != nil {
         log.Printf("[Service UpdateStoreStatusService ERROR] Failed to update Store Status Error: %v", err)
         return err
@@ -185,7 +189,7 @@ func (service *StoreService) DeleteStoreService(storeID uuid.UUID, userID uuid.U
         DeletedBy: &userID,
     }
 
-    err := service.repo.DeleteStore(storeID, &storeData, &userStoreData)
+    err := service.repo.DeleteStoreRepository(storeID, &storeData, &userStoreData)
     if err != nil {
         log.Printf("[Service DeleteStoreService ERROR] Failed to delete store: %v", err)
         return err

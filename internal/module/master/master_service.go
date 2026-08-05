@@ -3,16 +3,19 @@ package master
 import (
 	"pos-system-backend/internal/models"
 	masterDto "pos-system-backend/internal/module/master/dto"
+
+	"github.com/google/uuid"
 )
 
 type masterRepositoryInterface interface {
-	GetAllPrefix(req *masterDto.GetAllPrefixRequest) ([]models.Prefix, error)
-	GetAllUnit(req *masterDto.GetAllUnitRequest) ([]models.Unit, error)
-	GetAllProvince(req *masterDto.GetAllProviceRequest) ([]models.Province, error)
-	GetAllDistrict(req *masterDto.GetAllDistrictRequest) ([]models.District, error)
-	GetAllSubdistrict(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error)
-	GetAllPostcode(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error)
-	GetAllRole(req *masterDto.GetAllRoleRequest) ([]models.Role, error)
+	CheckIsOwnerRepository(userID uuid.UUID) (bool, error)
+	GetAllPrefixRepository(req *masterDto.GetAllPrefixRequest) ([]models.Prefix, error)
+	GetAllUnitRepository(req *masterDto.GetAllUnitRequest) ([]models.Unit, error)
+	GetAllProvinceRepository(req *masterDto.GetAllProviceRequest) ([]models.Province, error)
+	GetAllDistrictRepository(req *masterDto.GetAllDistrictRequest) ([]models.District, error)
+	GetAllSubdistrictRepository(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error)
+	GetAllPostcodeRepository(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error)
+	GetAllRoleRepository(req *masterDto.GetAllRoleRequest, systemRole string, isOwner bool) ([]models.Role, error)
 }
 
 type MasterService struct {
@@ -24,7 +27,7 @@ func NewMasterService(repo masterRepositoryInterface) *MasterService {
 }
 
 func (service *MasterService) GetAllPrefixService(req *masterDto.GetAllPrefixRequest) ([]masterDto.GetAllPrefixResponse, error){
-	prefixs, err := service.repo.GetAllPrefix(req)
+	prefixs, err := service.repo.GetAllPrefixRepository(req)
 
 	if err != nil {
         return nil, err
@@ -44,7 +47,7 @@ func (service *MasterService) GetAllPrefixService(req *masterDto.GetAllPrefixReq
 }
 
 func (service *MasterService) GetAllUnitService(req *masterDto.GetAllUnitRequest) ([]masterDto.GetAllUnitResponse, error) {
-	units, err := service.repo.GetAllUnit(req)
+	units, err := service.repo.GetAllUnitRepository(req)
 
 	if err != nil {
 		return nil, err
@@ -64,7 +67,7 @@ func (service *MasterService) GetAllUnitService(req *masterDto.GetAllUnitRequest
 }
 
 func (service *MasterService) GetAllProvinceService(req *masterDto.GetAllProviceRequest) ([]masterDto.GetAllProvinceResponse, error){
-	province, err := service.repo.GetAllProvince(req)
+	province, err := service.repo.GetAllProvinceRepository(req)
 
 	if err != nil {
 		return nil, err
@@ -75,7 +78,7 @@ func (service *MasterService) GetAllProvinceService(req *masterDto.GetAllProvice
 	for _, value := range province {
 		formatted := masterDto.GetAllProvinceResponse{
 			ID: value.ID,
-			Province: value.ProvinceName,
+			Province: value.ProvinceNameTh,
 		}
 		responseProvince = append(responseProvince, formatted)
 	}
@@ -84,7 +87,7 @@ func (service *MasterService) GetAllProvinceService(req *masterDto.GetAllProvice
 }
 
 func (service *MasterService) GetAllDistrictService(req *masterDto.GetAllDistrictRequest) ([]masterDto.GetAllDistrictResponse, error){
-	district, err := service.repo.GetAllDistrict(req)
+	district, err := service.repo.GetAllDistrictRepository(req)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +97,7 @@ func (service *MasterService) GetAllDistrictService(req *masterDto.GetAllDistric
 	for _, value := range district {
 		formatted := masterDto.GetAllDistrictResponse{
 			ID: value.ID,
-			District: value.DistrictName,
+			District: value.DistrictNameTh,
 		}
 		responseDistrict = append(responseDistrict, formatted)
 	}
@@ -103,7 +106,7 @@ func (service *MasterService) GetAllDistrictService(req *masterDto.GetAllDistric
 }
 
 func (service *MasterService) GetAllSubdistrictService(req *masterDto.GetAllSubdistrictRequest) ([]masterDto.GetAllSubdistrictResponse, error){
-	subdistrict, err := service.repo.GetAllSubdistrict(req)
+	subdistrict, err := service.repo.GetAllSubdistrictRepository(req)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +116,7 @@ func (service *MasterService) GetAllSubdistrictService(req *masterDto.GetAllSubd
 	for _, value := range subdistrict {
 		formatted := masterDto.GetAllSubdistrictResponse{
 			ID: value.ID,
-			Subdistrict: value.SubdistrictName,
+			Subdistrict: value.SubdistrictNameTh,
 		}
 		responseSubdistrict = append(responseSubdistrict, formatted)
 	}
@@ -122,7 +125,7 @@ func (service *MasterService) GetAllSubdistrictService(req *masterDto.GetAllSubd
 }
 
 func (service *MasterService) GetAllPostcodeService(req *masterDto.GetAllPostcodeRequest) ([]masterDto.GetAllPostcodeResponse, error){
-	postcode, err := service.repo.GetAllPostcode(req)
+	postcode, err := service.repo.GetAllPostcodeRepository(req)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +144,17 @@ func (service *MasterService) GetAllPostcodeService(req *masterDto.GetAllPostcod
 
 }
 
-func (service *MasterService) GetAllRoleService(req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error){
-	role, err := service.repo.GetAllRole(req)
+func (service *MasterService) GetAllRoleService(userID uuid.UUID, systemRole string, req *masterDto.GetAllRoleRequest) ([]masterDto.GetAllRoleResponse, error){
+	isOwner := false
+    if systemRole == "USER" {
+        var err error
+        isOwner, err = service.repo.CheckIsOwnerRepository(userID)
+        if err != nil {
+            return nil, err
+        }
+    }
+	
+	role, err := service.repo.GetAllRoleRepository(req, systemRole, isOwner)
 	if err != nil {
 		return nil, err
 	}

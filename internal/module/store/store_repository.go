@@ -23,7 +23,7 @@ func NewStoreRepository(db *gorm.DB) *StoreRepository {
 }
 
 
-func (repo *StoreRepository) CheckIsOwner(userID uuid.UUID) (bool, error) {
+func (repo *StoreRepository) CheckIsOwnerRepository(userID uuid.UUID) (bool, error) {
     var count int64
     err := repo.db.Table("user_stores").
         Joins("JOIN roles ON roles.id = user_stores.role_id").
@@ -33,7 +33,7 @@ func (repo *StoreRepository) CheckIsOwner(userID uuid.UUID) (bool, error) {
     return count > 0, err
 }
 
-func (repo *StoreRepository) GetUserStoresList(userID uuid.UUID, systemRole string, isOwner bool, data *storeDto.GetStoreRequest) (interface{}, int64, error) {
+func (repo *StoreRepository) GetUserStoresListRepository(userID uuid.UUID, systemRole string, isOwner bool, data *storeDto.GetStoreRequest) (interface{}, int64, error) {
 	if data.Page <= 0 {
         data.Page = 1 
     }
@@ -98,7 +98,7 @@ func (repo *StoreRepository) GetUserStoresList(userID uuid.UUID, systemRole stri
     return userStores, total, nil
 }
 
-func (repo *StoreRepository) GetLastStoreCode(tx *gorm.DB) (string, error) {
+func (repo *StoreRepository) GetLastStoreCodeRepository(tx *gorm.DB) (string, error) {
     var lastCode string
     err := tx.Model(&models.Store{}).
         Unscoped().  //เอาค่าทั้งหมดไม่สนว่ามี deleteAt ไหม
@@ -118,7 +118,11 @@ func (repo *StoreRepository) GetLastStoreCode(tx *gorm.DB) (string, error) {
     return lastCode, nil
 }
 
-func (repo *StoreRepository) CreateStore(store *models.Store, isBindOwner bool, userID uuid.UUID, ownerRoleID uuid.UUID) error {
+func (repo *StoreRepository) GetStoreRepository() {
+    
+}
+
+func (repo *StoreRepository) CreateStoreRepository(store *models.Store, isBindOwner bool, userID uuid.UUID, ownerRoleID uuid.UUID) error {
 	tx := repo.db.Begin()
     if tx.Error != nil {
 		log.Printf("[Repository CreateStore DATABASE ERROR] Failed to start transaction : %v", tx.Error)
@@ -127,7 +131,7 @@ func (repo *StoreRepository) CreateStore(store *models.Store, isBindOwner bool, 
 
     defer tx.Rollback()
 
-    lastCode, err := repo.GetLastStoreCode(tx)
+    lastCode, err := repo.GetLastStoreCodeRepository(tx)
     if err != nil {
         return err 
     }
@@ -171,7 +175,7 @@ func (repo *StoreRepository) CreateStore(store *models.Store, isBindOwner bool, 
     return  nil
 }
 
-func (repo *StoreRepository) UpdateStore(store *models.Store, storeAddress *models.StoreAddress, storeID uuid.UUID) error {
+func (repo *StoreRepository) UpdateStoreRepository(store *models.Store, storeAddress *models.StoreAddress, storeID uuid.UUID) error {
     tx := repo.db.Begin()
     if tx.Error != nil {
 		log.Printf("[Repository UpdateStore DATABASE ERROR] Failed to start transaction : %v", tx.Error)
@@ -201,7 +205,7 @@ func (repo *StoreRepository) UpdateStore(store *models.Store, storeAddress *mode
     return nil
 }
 
-func (repo *StoreRepository) UpdateStoreStatus(storeID uuid.UUID, store *models.Store) error {
+func (repo *StoreRepository) UpdateStoreStatusRepository(storeID uuid.UUID, store *models.Store) error {
     err := repo.db.Model(&models.Store{}).
         Where("id = ?", storeID).
         Updates(store).Error
@@ -213,7 +217,7 @@ func (repo *StoreRepository) UpdateStoreStatus(storeID uuid.UUID, store *models.
     return nil
 }
 
-func (repo *StoreRepository) DeleteStore(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error {
+func (repo *StoreRepository) DeleteStoreRepository(storeID uuid.UUID, storeData *models.Store, userStoreData *models.UserStore) error {
     tx := repo.db.Begin()
     if tx.Error != nil {
         return tx.Error
@@ -224,19 +228,27 @@ func (repo *StoreRepository) DeleteStore(storeID uuid.UUID, storeData *models.St
     err := tx.Model(&models.UserStore{}).
         Where("store_id = ?", storeID).
         Select("IsActive", "DeletedBy").
-        Delete(userStoreData).Error
+        Updates(userStoreData).Error
     if err != nil {
-        tx.Rollback()
+        return err
+    }
+
+    err = tx.Where("store_id = ?", storeID).Delete(&models.UserStore{}).Error
+    if err != nil {
         return err
     }
 
     err = tx.Model(&models.Store{}).
         Where("id = ?", storeID).
         Select("IsActive", "DeletedBy").
-        Delete(storeData).Error
+        Updates(storeData).Error
     if err != nil {
-       tx.Rollback()
        return err 
+    }
+
+    err = tx.Where("id = ?", storeID).Delete(&models.Store{}).Error
+    if err != nil {
+        return err
     }
 
     err = tx.Commit().Error

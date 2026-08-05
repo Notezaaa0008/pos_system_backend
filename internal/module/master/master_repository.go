@@ -6,6 +6,7 @@ import (
 	masterDto "pos-system-backend/internal/module/master/dto"
 	"strings"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +18,17 @@ func NewMasterRepository(db *gorm.DB) *MasterRepository {
 	return &MasterRepository{db: db}
 }
 
-func (repo *MasterRepository) GetAllPrefix(req *masterDto.GetAllPrefixRequest) ([]models.Prefix, error) {
+func (repo *MasterRepository) CheckIsOwnerRepository(userID uuid.UUID) (bool, error) {
+    var count int64
+    err := repo.db.Table("user_stores").
+        Joins("JOIN roles ON roles.id = user_stores.role_id").
+        Where("user_stores.user_id = ? AND roles.role_name = ? AND user_stores.is_active = ? AND user_stores.deleted_at IS NULL", userID, "OWNER", true).
+        Count(&count).Error
+        
+    return count > 0, err
+}
+
+func (repo *MasterRepository) GetAllPrefixRepository(req *masterDto.GetAllPrefixRequest) ([]models.Prefix, error) {
 	var prefix []models.Prefix
 
 	// ไม่ใส่ delete IS NULL เพราะ Gorm แอยใส่ให้
@@ -42,7 +53,7 @@ func (repo *MasterRepository) GetAllPrefix(req *masterDto.GetAllPrefixRequest) (
 	return prefix, nil
 }
 
-func (repo *MasterRepository) GetAllUnit(req *masterDto.GetAllUnitRequest) ([]models.Unit, error) {
+func (repo *MasterRepository) GetAllUnitRepository(req *masterDto.GetAllUnitRequest) ([]models.Unit, error) {
 	var unit []models.Unit
 
 	query := repo.db.Model(&models.Unit{}).Where("is_active = ?", true)
@@ -61,7 +72,7 @@ func (repo *MasterRepository) GetAllUnit(req *masterDto.GetAllUnitRequest) ([]mo
 	return unit, nil
 }
 
-func (repo *MasterRepository) GetAllProvince(req *masterDto.GetAllProviceRequest) ([]models.Province, error){
+func (repo *MasterRepository) GetAllProvinceRepository(req *masterDto.GetAllProviceRequest) ([]models.Province, error){
 	var province []models.Province
 
 	query := repo.db.Model(&models.Province{}).Where("is_active = ?", true)
@@ -80,7 +91,7 @@ func (repo *MasterRepository) GetAllProvince(req *masterDto.GetAllProviceRequest
 	return province, nil
 }
 
-func (repo *MasterRepository) GetAllDistrict(req *masterDto.GetAllDistrictRequest) ([]models.District, error){
+func (repo *MasterRepository) GetAllDistrictRepository(req *masterDto.GetAllDistrictRequest) ([]models.District, error){
 	var district []models.District
 
 	query := repo.db.Model(&models.District{}).Where("is_active = ? AND province_id", true, req.Province_ID)
@@ -99,7 +110,7 @@ func (repo *MasterRepository) GetAllDistrict(req *masterDto.GetAllDistrictReques
 	return district, nil
 }
 
-func (repo *MasterRepository) GetAllSubdistrict(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error){
+func (repo *MasterRepository) GetAllSubdistrictRepository(req *masterDto.GetAllSubdistrictRequest) ([]models.Subdistrict, error){
 	var subdistrict []models.Subdistrict
 
 	query := repo.db.Model(&models.Subdistrict{}).Where("is_active = ? AND district_id = ?", true, req.District_ID)
@@ -118,7 +129,7 @@ func (repo *MasterRepository) GetAllSubdistrict(req *masterDto.GetAllSubdistrict
 	return subdistrict, nil
 }
 
-func (repo *MasterRepository) GetAllPostcode(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error){
+func (repo *MasterRepository) GetAllPostcodeRepository(req *masterDto.GetAllPostcodeRequest) ([]models.Postcode, error){
 	var postcode []models.Postcode
 
 	query := repo.db.Model(&models.Postcode{}).
@@ -144,18 +155,22 @@ func (repo *MasterRepository) GetAllPostcode(req *masterDto.GetAllPostcodeReques
     return postcode, nil
 }
 
-func (repo *MasterRepository) GetAllRole(req *masterDto.GetAllRoleRequest) ([]models.Role, error){
+func (repo *MasterRepository) GetAllRoleRepository(req *masterDto.GetAllRoleRequest, systemRole string, isOwner bool) ([]models.Role, error){
 	var role []models.Role
 
 	query := repo.db.Model(&models.Role{}).Where("is_active = ?", true)
 
+	if systemRole == "USER" && !isOwner {
+		query = query.Where("role_name != ?", "OWNER")
+	}
+
 	search := strings.TrimSpace(req.Search)
 	if search != "" {
 		searchPattern := fmt.Sprintf("%%%s%%", search)
-		query = query.Where("(role_name ILIKE ?)", searchPattern)
+		query = query.Where("role_name ILIKE ?", searchPattern)
 	}
 
-	err := query.Limit(10).Find(&role).Error
+	err := query.Order("role_name ASC").Find(&role).Error
 	if err != nil {
 		return nil, err
 	}

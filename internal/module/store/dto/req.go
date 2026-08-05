@@ -10,7 +10,7 @@ type GetStoreRequest struct {
 
 type CreateStoreRequest struct {
 	StoreName			string			`json:"store_name" binding:"required"`
-	BranchName			string			`json:"branch_name_name" binding:"required"`
+	BranchName			string			`json:"branch_name" binding:"required"`
 	Description			*string 		`json:"description" binding:"omitempty"`
 	PrimaryPhone		string			`json:"primary_phone" binding:"required,numeric,min=9,max=10"`
 	SecondaryPhone		*string			`json:"secondary_phone" binding:"omitempty,numeric,min=9,max=10"`

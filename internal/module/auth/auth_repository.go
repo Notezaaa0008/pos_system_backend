@@ -19,7 +19,7 @@ func NewAuthRepository(db *gorm.DB) *AuthRepository {
 }
 
 // Get
-func (repo *AuthRepository) CheckSystemAdminExists(systemRole string) (bool, error) {
+func (repo *AuthRepository) CheckSystemAdminExistsRepository(systemRole string) (bool, error) {
 	var user models.User
 	
 	err := repo.db.Select("id").Where("system_role = ?", systemRole).First(&user).Error
@@ -36,7 +36,7 @@ func (repo *AuthRepository) CheckSystemAdminExists(systemRole string) (bool, err
     return true, nil
 }
 
-func (repo *AuthRepository) CheckPermission(userID uuid.UUID, storeID uuid.UUID) (*models.UserStore, error) {
+func (repo *AuthRepository) CheckPermissionRepository(userID uuid.UUID, storeID uuid.UUID) (*models.UserStore, error) {
 	var userStore models.UserStore
 
 	err := repo.db.Preload("Role").Where("user_id = ? AND store_id = ?", userID, storeID).First(&userStore).Error
@@ -48,7 +48,7 @@ func (repo *AuthRepository) CheckPermission(userID uuid.UUID, storeID uuid.UUID)
     return &userStore, nil
 }
 
-func (repo *AuthRepository) CheckRefreshTokenValid(hashedRefreshToken string) (bool, error) {
+func (repo *AuthRepository) CheckRefreshTokenValidRepository(hashedRefreshToken string) (bool, error) {
 	if hashedRefreshToken == "" {
 		return false, errors.New("hash refresh token is required.")
 	}
@@ -70,7 +70,7 @@ func (repo *AuthRepository) CheckRefreshTokenValid(hashedRefreshToken string) (b
 }
 
 
-func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*models.User, int64, error) {
+func (repo *AuthRepository) FindUserByEmailRepository(email string, findType string) (*models.User, int64, error) {
 	if email == "" {
 		return nil, 0,errors.New("email is required.")
 	}
@@ -93,7 +93,7 @@ func (repo *AuthRepository) FindUserByEmail(email string, findType string) (*mod
 	return &user, storeCount, nil
 }
 
-func (repo *AuthRepository) FindValidResetToken(token string) (*models.ResetPassword, error) {
+func (repo *AuthRepository) FindValidResetTokenRepository(token string) (*models.ResetPassword, error) {
 	if token == "" {
 		return nil, errors.New("token is required.")
 	}
@@ -108,7 +108,7 @@ func (repo *AuthRepository) FindValidResetToken(token string) (*models.ResetPass
 }
 
 // Create
-func (repo *AuthRepository) CreateUserSystemAdmin(userData *models.User) error {
+func (repo *AuthRepository) CreateUserSystemAdminRepository(userData *models.User) error {
 	if userData == nil {
 		return errors.New("data user is required.")
 	}
@@ -123,7 +123,7 @@ func (repo *AuthRepository) CreateUserSystemAdmin(userData *models.User) error {
 	return nil
 }
 
-func (repo *AuthRepository) CreateUser(userData *models.User, userStoreData *models.UserStore) error {
+func (repo *AuthRepository) CreateUserRepository(userData *models.User, userStoreData *models.UserStore) error {
 	if userData == nil || userStoreData == nil {
         return errors.New("user data and store permission data are required")
     }
@@ -159,7 +159,7 @@ func (repo *AuthRepository) CreateUser(userData *models.User, userStoreData *mod
 	return nil
 }
 
-func (repo *AuthRepository) CreateRefreshTokenRecord(refreshTokenData *models.RefreshToken) error {
+func (repo *AuthRepository) CreateRefreshTokenRecordRepository(refreshTokenData *models.RefreshToken) error {
 	if refreshTokenData == nil {
 		return errors.New("data refresh token is required.")
 	}
@@ -173,7 +173,7 @@ func (repo *AuthRepository) CreateRefreshTokenRecord(refreshTokenData *models.Re
 	return nil
 }
 
-func (repo *AuthRepository) CreateResetPassword(reset *models.ResetPassword) error {
+func (repo *AuthRepository) CreateResetPasswordRepository(reset *models.ResetPassword) error {
 	if reset == nil {
 		return errors.New("data reset password is required.")
 	}
@@ -187,7 +187,7 @@ func (repo *AuthRepository) CreateResetPassword(reset *models.ResetPassword) err
 	return nil
 }
 
-func (repo *AuthRepository) CreateLogEmail(logEmail *models.LogSendEmail) error {
+func (repo *AuthRepository) CreateLogEmailRepository(logEmail *models.LogSendEmail) error {
 	if logEmail == nil {
         return errors.New("log email data is required")
     }
@@ -202,7 +202,7 @@ func (repo *AuthRepository) CreateLogEmail(logEmail *models.LogSendEmail) error 
 }
 
 // Update
-func (repo *AuthRepository) RevokeRefreshToken(userID uuid.UUID, hashedToken string) error {
+func (repo *AuthRepository) RevokeRefreshTokenRepository(userID uuid.UUID, hashedToken string) error {
 
 	query := repo.db.Model(&models.RefreshToken{}).Where("is_revoked = ?", false)
 
@@ -231,7 +231,7 @@ func (repo *AuthRepository) RevokeRefreshToken(userID uuid.UUID, hashedToken str
     return nil
 }
 
-func (repo *AuthRepository) UpdatePasswordAndRevokeToken(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error {
+func (repo *AuthRepository) UpdatePasswordAndRevokeTokenRepository(userID uuid.UUID, hashedPwd string, resetID uuid.UUID) error {
 	if userID == uuid.Nil || hashedPwd == "" || resetID == uuid.Nil {
         return errors.New("missing required arguments for updating password and revoking token")
     }
@@ -290,7 +290,7 @@ func (repo *AuthRepository) UpdatePasswordAndRevokeToken(userID uuid.UUID, hashe
     return nil
 }
 
-func (repo *AuthRepository) UpdateLogEmailStatus(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error {
+func (repo *AuthRepository) UpdateLogEmailStatusRepository(logID uuid.UUID, status string, errMsg *string, userID uuid.UUID) error {
 	now := time.Now()
 
 	updates := map[string]interface{}{
