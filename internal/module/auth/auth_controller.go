@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
 )
 
@@ -89,7 +88,7 @@ func (authCtrl *AuthController) RegisterUserController(c *gin.Context) {
     }
 	
 	var req authDto.RegisterUserRequest
-	err = c.ShouldBindWith(&req, binding.FormMultipart) // สำหรับ Form-data
+	err = c.ShouldBind(&req) // สำหรับ Form-data
     if err != nil {
 		log.Printf("[RegisterUser WARN] Validation failed for user input form-data: %v", err)
         c.JSON(http.StatusBadRequest, gin.H{
